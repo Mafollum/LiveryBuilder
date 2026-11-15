@@ -55,3 +55,34 @@ export function makeSandbox(templates: Record<string, Uint8Array> = standardTemp
   mkdirSync(documents, { recursive: true });
   return { root, lmu, userData, documents, env: { LIVERY_LMU_DIR: lmu, LIVERY_USER_DATA: userData, LIVERY_DOCUMENTS: documents } };
 }
+
+import { PNG } from 'pngjs';
+import type { Page as PwPage } from '@playwright/test';
+
+/** Screen colour [r, g, b] at a client pixel. */
+export async function pixelAt(page: PwPage, x: number, y: number): Promise<[number, number, number]> {
+  const buf = await page.screenshot({ clip: { x: Math.round(x), y: Math.round(y), width: 1, height: 1 } });
+  const png = PNG.sync.read(buf);
+  return [png.data[0], png.data[1], png.data[2]];
+}
+
+export async function textureToClient(page: PwPage, x: number, y: number): Promise<{ x: number; y: number }> {
+  return page.evaluate(([tx, ty]) => window.__livery.textureToClient(tx, ty), [x, y] as const);
+}
+
+/** Colour at a texture coordinate as shown on screen. */
+export async function texturePixel(page: PwPage, x: number, y: number): Promise<[number, number, number]> {
+  const c = await textureToClient(page, x, y);
+  return pixelAt(page, c.x, c.y);
+}
+
+/** Opens a car from the start screen and waits until its panels are on screen. */
+export async function openCar(page: PwPage, label: string): Promise<void> {
+  await page.getByRole('button', { name: label }).click();
+  await page.waitForFunction(() => !!window.__livery?.getState().panel && window.__livery.isCanvasReady());
+}
+
+/** Colour equality within ±tol per channel (canvas blending rounds by 1). */
+export function near(actual: [number, number, number], expected: [number, number, number], tol = 1): boolean {
+  return actual.every((v, i) => Math.abs(v - expected[i]) <= tol);
+}
