@@ -107,4 +107,7 @@ export interface LmuApi {
   openTemplate(fileName: string): Promise<PanelData>;
   openTemplateFile(absPath: string): Promise<PanelData>;
   chooseTemplateFile(): Promise<string | null>;
+  liveryStatus(): Promise<{ folder: string; exists: boolean }>;
+  writeLivery(paint: Uint8Array, region: Uint8Array, backup: boolean): Promise<{ ok: true } | { ok: false; message: string }>;
+  saveLiveryElsewhere(paint: Uint8Array, region: Uint8Array): Promise<{ ok: true; folder: string } | { ok: false; message: string } | null>;
 }

@@ -10,6 +10,9 @@ const api: LmuApi = {
   openTemplate: (fileName) => ipcRenderer.invoke('templates:open', fileName),
   openTemplateFile: (absPath) => ipcRenderer.invoke('templates:openFile', absPath),
   chooseTemplateFile: () => ipcRenderer.invoke('templates:chooseFile'),
+  liveryStatus: () => ipcRenderer.invoke('livery:status'),
+  writeLivery: (paint, region, backup) => ipcRenderer.invoke('livery:write', paint, region, backup),
+  saveLiveryElsewhere: (paint, region) => ipcRenderer.invoke('livery:saveElsewhere', paint, region),
 };
 
 contextBridge.exposeInMainWorld('lmu', api);

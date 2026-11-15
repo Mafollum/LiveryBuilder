@@ -13,6 +13,18 @@ import { TextOverlay, type TextEdit } from '../components/TextOverlay';
 import { importImageFile } from '../canvas/importImage';
 import { getAssetImage } from '../state/assets';
 import { BrushCache } from '../canvas/brush';
+import { renderLiveryFiles } from '../export/renderLivery';
+import { Dialog } from '../components/Dialog';
+
+const SENT = 'Sent! Press RELOAD in the showroom.';
+/** Asked (or wrote our own files) once this session: don't ask again before replacing. */
+let askedThisSession = false;
+
+type Notice = { text: string; kind: 'info' | 'success' };
+type Choice = 'backup' | 'replace' | 'cancel';
+type DialogState =
+  | { kind: 'replace'; resolve(c: Choice): void }
+  | { kind: 'writeError'; message: string; files: { paint: Uint8Array; region: Uint8Array } };
 import { newTextItem } from '../state/factories';
 import type { TextItem } from '@shared/types';
 
@@ -47,7 +59,10 @@ export function Editor({ onBack }: Props): React.JSX.Element {
   const carColour = useEditor((s) => s.project.carColour);
   const setCarColour = useEditor((s) => s.setCarColour);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNoticeState] = useState<Notice | null>(null);
+  const setNotice = useCallback((text: string | null, kind: Notice['kind'] = 'info') => setNoticeState(text ? { text, kind } : null), []);
+  const [sending, setSending] = useState(false);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
   const [textEdit, setTextEdit] = useState<TextEdit | null>(null);
 
   useEffect(() => {
@@ -55,6 +70,46 @@ export function Editor({ onBack }: Props): React.JSX.Element {
     const t = setTimeout(() => setNotice(null), 8000);
     return () => clearTimeout(t);
   }, [notice]);
+
+  const send = useCallback(async () => {
+    const view = viewRef.current;
+    const st = useEditor.getState();
+    if (!view || !st.panel || sending) return;
+    const status = await window.lmu.liveryStatus();
+    let backup = false;
+    if (status.exists && !askedThisSession) {
+      const choice = await new Promise<Choice>((resolve) => setDialog({ kind: 'replace', resolve }));
+      setDialog(null);
+      if (choice === 'cancel') return;
+      backup = choice === 'backup';
+    }
+    askedThisSession = true;
+    setSending(true);
+    setNotice(null);
+    try {
+      const s = useEditor.getState();
+      const files = await renderLiveryFiles(
+        { width: s.panel!.width, height: s.panel!.height, carColour: s.project.carColour, items: s.project.items, levels: s.panel!.levels },
+        view.nodeContext,
+      );
+      const res = await window.lmu.writeLivery(files.paint, files.region, backup);
+      if (res.ok) setNotice(SENT, 'success');
+      else setDialog({ kind: 'writeError', message: res.message, files });
+    } finally {
+      setSending(false);
+    }
+  }, [sending, setNotice]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !isTyping(e.target)) {
+        e.preventDefault();
+        void send();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [send]);
 
   const addFiles = useCallback(async (files: Iterable<File>) => {
     const view = viewRef.current;
@@ -129,7 +184,41 @@ export function Editor({ onBack }: Props): React.JSX.Element {
 
   return (
     <div className="editor">
-      <TopBar title={template?.label ?? ''} onBack={onBack} onFit={() => viewRef.current?.fit()} />
+      <TopBar title={template?.label ?? ''} onBack={onBack} onFit={() => viewRef.current?.fit()}>
+        <button type="button" className="primary send" disabled={sending} onClick={() => void send()} title="Send to game (Ctrl+Enter)">
+          {sending ? 'Sending…' : 'Send to game'}
+        </button>
+      </TopBar>
+      {dialog?.kind === 'replace' && (
+        <Dialog
+          title="There's already a livery in the game folder. Replace it?"
+          buttons={[
+            { label: 'Keep a backup and replace', primary: true, onClick: () => dialog.resolve('backup') },
+            { label: 'Replace', onClick: () => dialog.resolve('replace') },
+            { label: 'Cancel', onClick: () => dialog.resolve('cancel') },
+          ]}
+        />
+      )}
+      {dialog?.kind === 'writeError' && (
+        <Dialog
+          title="Couldn't write to the game folder"
+          message={<p>{dialog.message}</p>}
+          buttons={[
+            {
+              label: 'Save the two files somewhere else…',
+              primary: true,
+              onClick: async () => {
+                const res = await window.lmu.saveLiveryElsewhere(dialog.files.paint, dialog.files.region);
+                if (!res) return;
+                setDialog(null);
+                if (res.ok) setNotice(`Saved customskin.tga and customskin_region.tga in ${res.folder}. Copy them into the game's Liveries folder.`, 'success');
+                else setNotice(res.message);
+              },
+            },
+            { label: 'Close', onClick: () => setDialog(null) },
+          ]}
+        />
+      )}
       <div className="editor-body">
         <Toolbar
           extra={
@@ -186,8 +275,8 @@ export function Editor({ onBack }: Props): React.JSX.Element {
               />
             )}
             {notice && (
-              <div className="notice-banner" role="alert">
-                {notice}
+              <div className={`notice-banner ${notice.kind}`} role="alert">
+                {notice.text}
                 <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)}>×</button>
               </div>
             )}

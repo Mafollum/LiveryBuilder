@@ -5,6 +5,7 @@ import { findLmuFolder } from './lmu/findLmu';
 import { loadSettings, saveSettings } from './settings';
 import { listTemplates, templatesDir } from './templates/listTemplates';
 import { openTemplateAt } from './templates/openTemplate';
+import { describeWriteError, liveryStatus, writeLiveryFiles } from './livery/writeLivery';
 import type { ChooseFolderResult } from '../shared/types';
 
 const NOT_LMU = "That folder doesn't look like Le Mans Ultimate (there's no Support\\LiveryTemplates inside).";
@@ -47,6 +48,35 @@ export function registerIpc(): void {
     const lmu = currentLmuFolder();
     if (!lmu) throw new Error('Le Mans Ultimate folder not set');
     return openTemplateAt(join(templatesDir(lmu), fileName), app.getPath('userData'));
+  });
+
+  ipcMain.handle('livery:status', () => {
+    const lmu = currentLmuFolder();
+    if (!lmu) throw new Error('Le Mans Ultimate folder not set');
+    return liveryStatus(lmu);
+  });
+
+  ipcMain.handle('livery:write', (_e, paint: Uint8Array, region: Uint8Array, backup: boolean) => {
+    const lmu = currentLmuFolder();
+    if (!lmu) return { ok: false, message: "Couldn't find the Le Mans Ultimate folder." };
+    try {
+      writeLiveryFiles(liveryStatus(lmu).folder, paint, region, { backup });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: describeWriteError(err as NodeJS.ErrnoException) };
+    }
+  });
+
+  ipcMain.handle('livery:saveElsewhere', async (e, paint: Uint8Array, region: Uint8Array) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+    const res = await dialog.showOpenDialog(win!, { title: 'Choose a folder for the two livery files', properties: ['openDirectory', 'createDirectory'] });
+    if (res.canceled || !res.filePaths[0]) return null;
+    try {
+      writeLiveryFiles(res.filePaths[0], paint, region, { backup: false });
+      return { ok: true, folder: res.filePaths[0] };
+    } catch (err) {
+      return { ok: false, message: describeWriteError(err as NodeJS.ErrnoException) };
+    }
   });
 
   ipcMain.handle('templates:openFile', (_e, absPath: string) => openTemplateAt(absPath, app.getPath('userData')));
