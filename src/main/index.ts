@@ -1,10 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
+import { registerIpc } from './ipc';
 
 const smokeTest = process.argv.includes('--smoke-test');
 
 app.setName('LiveryBuilder');
 if (process.env.LIVERY_USER_DATA) app.setPath('userData', process.env.LIVERY_USER_DATA);
+if (process.env.LIVERY_DOCUMENTS) app.setPath('documents', process.env.LIVERY_DOCUMENTS);
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -30,6 +32,7 @@ ipcMain.on('app:ready', () => {
 if (smokeTest) setTimeout(() => app.exit(1), 30_000);
 
 app.whenReady().then(() => {
+  registerIpc();
   createWindow();
 });
 

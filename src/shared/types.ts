@@ -92,3 +92,17 @@ export interface Project {
   carColour: string;
   items: Item[];
 }
+
+export type ChooseFolderResult = { folder: string } | { error: string } | null;
+
+/** The API the preload script exposes to the renderer as window.lmu. */
+export interface LmuApi {
+  ready(): void;
+  isTest: boolean;
+  getLmuFolder(): Promise<string | null>;
+  chooseLmuFolder(): Promise<ChooseFolderResult>;
+  listTemplates(): Promise<CarTemplate[]>;
+  openTemplate(fileName: string): Promise<PanelData>;
+  openTemplateFile(absPath: string): Promise<PanelData>;
+  chooseTemplateFile(): Promise<string | null>;
+}

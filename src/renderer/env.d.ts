@@ -1,6 +1,7 @@
-export {};
+import type { LmuApi } from '@shared/types';
+
 declare global {
   interface Window {
-    lmu: { ready(): void };
+    lmu: LmuApi;
   }
 }

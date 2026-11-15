@@ -19,3 +19,39 @@ export async function launchApp(
   await page.waitForLoadState('domcontentloaded');
   return { app, page };
 }
+
+import { mkdtempSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { makeTemplate } from '../fixtures/makeTemplate';
+import { makeFakeLmu } from '../fixtures/fakeLmu';
+
+export const ALPHA = 'Template_GT3_TestCarAlpha_2025.psd';
+export const BETA = 'Template_HYPER_TestCarBeta.psd';
+export const LEVELS_10_210 = { shadowInput: 0, highlightInput: 255, shadowOutput: 10, highlightOutput: 210, midtoneInput: 1 };
+
+let fixtureCache: Record<string, Uint8Array> | null = null;
+export function standardTemplates(): Record<string, Uint8Array> {
+  fixtureCache ??= {
+    [ALPHA]: makeTemplate({
+      size: 1024,
+      mask: { rects: [{ x: 100, y: 100, w: 400, h: 200 }, { x: 600, y: 500, w: 300, h: 400 }] },
+      levels: LEVELS_10_210,
+    }),
+    [BETA]: makeTemplate({ size: 1024, wire: { rects: [{ x: 200, y: 200, w: 600, h: 400 }] } }),
+  };
+  return fixtureCache;
+}
+
+export interface Sandbox { root: string; lmu: string; userData: string; documents: string; env: Record<string, string> }
+
+/** A temp LMU install (standard fixtures unless `templates` is given), user data and documents folders. */
+export function makeSandbox(templates: Record<string, Uint8Array> = standardTemplates()): Sandbox {
+  const root = mkdtempSync(join(tmpdir(), 'livery-e2e-'));
+  const lmu = makeFakeLmu(root, templates);
+  const userData = join(root, 'userData');
+  const documents = join(root, 'Documents');
+  mkdirSync(userData, { recursive: true });
+  mkdirSync(documents, { recursive: true });
+  return { root, lmu, userData, documents, env: { LIVERY_LMU_DIR: lmu, LIVERY_USER_DATA: userData, LIVERY_DOCUMENTS: documents } };
+}
