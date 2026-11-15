@@ -13,6 +13,9 @@ export class ToolController {
   private start: { x: number; y: number } | null = null;
   private preview: Konva.Shape | null = null;
 
+  /** Called when the text tool is clicked at a texture position. */
+  onTextRequest: (at: { x: number; y: number }) => void = () => {};
+
   constructor(private view: CanvasView) {
     const stage = view.stage;
     stage.on('mousedown.tools', (e) => this.down(e.evt));
@@ -32,6 +35,11 @@ export class ToolController {
 
   private down(e: MouseEvent): void {
     if (e.button !== 0 || this.view.isPanning()) return;
+    if (useEditor.getState().tool === 'text') {
+      const at = this.view.pointer();
+      if (at) this.onTextRequest(at);
+      return;
+    }
     const shape = this.shapeTool();
     const p = this.view.pointer();
     if (!shape || !p) return;

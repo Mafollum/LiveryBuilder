@@ -6,6 +6,7 @@ import { useEditor } from '../state/store';
 import { ColourPicker } from './ColourPicker';
 
 const FINISH_HINT = "You choose what each finish looks like in the game's showroom.";
+export const FONTS = ['Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Consolas', 'Impact', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana'];
 
 function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange(v: number): void }) {
   const [text, setText] = useState(String(Math.round(value)));
@@ -67,6 +68,27 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
           <NumberField label="Outline width" value={item.strokeWidth} min={0} max={200} onChange={(v) => set({ strokeWidth: v })} />
           {item.shape === 'rect' && <NumberField label="Corner radius" value={item.cornerRadius} min={0} max={2000} onChange={(v) => set({ cornerRadius: v })} />}
           {item.shape === 'line' && <NumberField label="Thickness" value={item.height} min={1} max={2000} onChange={(v) => set({ height: v })} />}
+        </>
+      )}
+      {item.type === 'text' && (
+        <>
+          <label className="field">
+            <span>Font</span>
+            <select aria-label="Font" value={item.fontFamily} onChange={(e) => set({ fontFamily: e.target.value })}>
+              {FONTS.map((f) => (
+                <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+              ))}
+            </select>
+          </label>
+          <NumberField label="Size" value={item.fontSize} min={8} max={2000} onChange={(v) => set({ fontSize: v })} />
+          <ColourPicker label="Fill" value={item.fill} onChange={(c) => { set({ fill: c }); setBrush({ colour: c }); }} />
+          <div className="button-row">
+            <button type="button" aria-pressed={item.bold} className={item.bold ? 'active' : ''} onClick={() => set({ bold: !item.bold })}>Bold</button>
+            <button type="button" aria-pressed={item.italic} className={item.italic ? 'active' : ''} onClick={() => set({ italic: !item.italic })}>Italic</button>
+          </div>
+          <ColourPicker label="Outline colour" value={item.stroke} onChange={(c) => set({ stroke: c })} />
+          <NumberField label="Outline width" value={item.strokeWidth} min={0} max={200} onChange={(v) => set({ strokeWidth: v })} />
+          <p className="hint small">Double-click the text on the car to change it.</p>
         </>
       )}
       {children}

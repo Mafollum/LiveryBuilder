@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { useEditor } from '../state/store';
 import { CanvasView, isTyping } from '../canvas/CanvasView';
@@ -9,6 +9,11 @@ import { ColourPicker } from '../components/ColourPicker';
 import { Toolbar } from '../components/Toolbar';
 import { PropertiesPanel } from '../components/PropertiesPanel';
 import { ItemsList } from '../components/ItemsList';
+import { TextOverlay, type TextEdit } from '../components/TextOverlay';
+import { importImageFile } from '../canvas/importImage';
+import { getAssetImage } from '../state/assets';
+import { newTextItem } from '../state/factories';
+import type { TextItem } from '@shared/types';
 
 interface Props { onBack(): void }
 
@@ -40,13 +45,46 @@ export function Editor({ onBack }: Props): React.JSX.Element {
   const panel = useEditor((s) => s.panel);
   const carColour = useEditor((s) => s.project.carColour);
   const setCarColour = useEditor((s) => s.setCarColour);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [textEdit, setTextEdit] = useState<TextEdit | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 8000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const addFiles = useCallback(async (files: Iterable<File>) => {
+    const view = viewRef.current;
+    const holderEl = holder.current;
+    if (!view || !holderEl) return;
+    for (const file of files) {
+      const r = holderEl.getBoundingClientRect();
+      const centre = view.clientToTexture(r.left + r.width / 2, r.top + r.height / 2);
+      const scale = view.getView().scale;
+      const res = await importImageFile(file, { centreX: centre.x, centreY: centre.y, maxW: (r.width * 0.8) / scale, maxH: (r.height * 0.8) / scale });
+      if ('error' in res) setNotice(res.error);
+      else {
+        setNotice(null);
+        useEditor.getState().addItem(res);
+        useEditor.getState().setTool('select');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const view = new CanvasView(holder.current!);
     viewRef.current = view;
     setCurrentView(view);
+    view.nodeContext = { ...view.nodeContext, getImage: (id) => getAssetImage(id) };
     const tools = new ToolController(view);
+    tools.onTextRequest = (at) => setTextEdit({ mode: 'new', at });
     view.callbacks = {
+      editText: (id) => {
+        const it = useEditor.getState().project.items.find((i) => i.id === id);
+        if (it?.type === 'text') setTextEdit({ mode: 'edit', item: it });
+      },
       select: (id) => useEditor.getState().select(id),
       geometry: (id, g) => {
         const st = useEditor.getState();
@@ -83,9 +121,67 @@ export function Editor({ onBack }: Props): React.JSX.Element {
     <div className="editor">
       <TopBar title={template?.label ?? ''} onBack={onBack} onFit={() => viewRef.current?.fit()} />
       <div className="editor-body">
-        <Toolbar />
+        <Toolbar
+          extra={
+            <>
+              <button type="button" className="tool" onClick={() => fileInput.current?.click()}>
+                <span className="tool-icon" aria-hidden>🖼</span>
+                Image
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                aria-label="Image file"
+                accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
+                hidden
+                multiple
+                onChange={(e) => {
+                  const files = [...(e.target.files ?? [])];
+                  e.target.value = '';
+                  void addFiles(files);
+                }}
+              />
+            </>
+          }
+        />
         <div className="canvas-column">
-          <div className="canvas-holder" ref={holder} />
+          <div
+            className="canvas-holder"
+            ref={holder}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              void addFiles([...e.dataTransfer.files]);
+            }}
+          >
+            {textEdit && holder.current && (
+              <TextOverlay
+                key={textEdit.mode === 'edit' ? textEdit.item.id : `${textEdit.at.x},${textEdit.at.y}`}
+                edit={textEdit}
+                holder={holder.current}
+                defaultFont="Arial Black"
+                defaultSize={200}
+                onCancel={() => setTextEdit(null)}
+                onCommit={(text) => {
+                  const st = useEditor.getState();
+                  if (textEdit.mode === 'edit') st.updateItem(textEdit.item.id, { text } as Partial<TextItem>);
+                  else {
+                    const it = newTextItem(textEdit.at, st.brush.colour);
+                    it.text = text;
+                    st.addItem(it);
+                    st.setTool('select');
+                  }
+                  setTextEdit(null);
+                }}
+              />
+            )}
+            {notice && (
+              <div className="notice-banner" role="alert">
+                {notice}
+                <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)}>×</button>
+              </div>
+            )}
+          </div>
           <div className="canvas-footer">
             <ColourPicker label="Car colour" value={carColour} onChange={setCarColour} />
             {panel?.source === 'none' && <span className="note">This car's template has no panel outlines</span>}

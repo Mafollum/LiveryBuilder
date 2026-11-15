@@ -18,6 +18,8 @@ export interface CanvasCallbacks {
   select(id: string | null): void;
   /** Final geometry at the end of a drag or transform. */
   geometry(id: string, g: ItemGeometry): void;
+  /** Double-click on a text item. */
+  editText?(id: string): void;
 }
 
 const ZOOM_STEP = 1.15;
@@ -100,6 +102,10 @@ export class CanvasView {
       if (!this.selectMode || this.isPanning() || e.evt instanceof MouseEvent && e.evt.button !== 0) return;
       const target = e.target as Konva.Node;
       if (target.name() === 'item') this.callbacks.select(target.id());
+    });
+    this.items.on('dblclick dbltap', (e) => {
+      const target = e.target as Konva.Node;
+      if (this.selectMode && target.name() === 'item' && target.getAttr('itemKind') === 'text') this.callbacks.editText?.(target.id());
     });
     this.stage.on('mousedown', (e) => {
       if (!this.selectMode || this.isPanning() || e.evt.button !== 0) return;

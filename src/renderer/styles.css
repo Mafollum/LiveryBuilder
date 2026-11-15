@@ -55,3 +55,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .items li.selected { background: #e3edfc; }
 .items .eye { padding: 0 4px; border: none; background: none; }
 .items li input { flex: 1; font: inherit; }
+.canvas-holder .konvajs-content { position: absolute !important; inset: 0; }
+.text-overlay { position: absolute; z-index: 5; min-width: 160px; padding: 2px 4px; border: 1px dashed #1d6fe0; background: rgba(255, 255, 255, 0.85); line-height: 1; resize: none; overflow: hidden; white-space: pre; }
+.notice-banner { position: absolute; z-index: 6; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; background: #fff4e5; border: 1px solid #e0a040; color: #6a4000; padding: 8px 12px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.notice-banner button { border: none; background: none; padding: 0 4px; font-size: 16px; }
+.button-row button.active { background: #e3edfc; border-color: #1d6fe0; }

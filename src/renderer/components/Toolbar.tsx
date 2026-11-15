@@ -9,6 +9,7 @@ export const TOOLS: ToolButton[] = [
   { id: 'ellipse', label: 'Circle', icon: '◯' },
   { id: 'line', label: 'Line', icon: '╱' },
   { id: 'triangle', label: 'Triangle', icon: '△' },
+  { id: 'text', label: 'Text', icon: 'T' },
 ];
 
 export function Toolbar({ extra }: { extra?: React.ReactNode }): React.JSX.Element {
