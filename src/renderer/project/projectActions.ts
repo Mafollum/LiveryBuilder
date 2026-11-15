@@ -3,6 +3,7 @@ import { carDisplayName } from '../../main/templates/carName';
 import { useEditor } from '../state/store';
 import { getAsset, registerAsset } from '../state/assets';
 import { deserializeProject, serializeProject, type AssetBytes } from './projectZip';
+import { plainError, showMessage } from '../messages';
 
 export class MissingTemplateError extends Error {
   constructor(readonly fileName: string, readonly project: Project, readonly path: string | null, readonly dirty: boolean) {
@@ -22,15 +23,20 @@ export async function currentProjectBytes(): Promise<Uint8Array> {
   return serializeProject(project, assets);
 }
 
-/** Saves to the current file, or asks where (Save As). Returns false if cancelled. */
+/** Saves to the current file, or asks where (Save As). Returns false if cancelled or failed (the user is told). */
 export async function saveCurrent(saveAs: boolean): Promise<boolean> {
   const st = useEditor.getState();
-  const bytes = await currentProjectBytes();
-  const path = await window.lmu.saveProject(bytes, saveAs ? null : st.projectPath, st.template?.label ?? 'Livery');
-  if (!path) return false;
-  st.markSaved(path);
-  await window.lmu.clearAutosave();
-  return true;
+  try {
+    const bytes = await currentProjectBytes();
+    const path = await window.lmu.saveProject(bytes, saveAs ? null : st.projectPath, st.template?.label ?? 'Livery');
+    if (!path) return false;
+    st.markSaved(path);
+    await window.lmu.clearAutosave();
+    return true;
+  } catch (e) {
+    showMessage("Couldn't save the project", `Your livery was not saved: ${plainError(e)}. Try saving somewhere else (Ctrl+Shift+S).`);
+    return false;
+  }
 }
 
 function templateFor(fileName: string, list: CarTemplate[]): CarTemplate {

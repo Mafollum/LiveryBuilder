@@ -15,6 +15,7 @@ import { getAssetImage } from '../state/assets';
 import { BrushCache } from '../canvas/brush';
 import { renderLiveryFiles } from '../export/renderLivery';
 import { Dialog } from '../components/Dialog';
+import { plainError } from '../messages';
 
 const SENT = 'Sent! Press RELOAD in the showroom.';
 /** Asked (or wrote our own files) once this session: don't ask again before replacing. */
@@ -75,18 +76,18 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
     const view = viewRef.current;
     const st = useEditor.getState();
     if (!view || !st.panel || sending) return;
-    const status = await window.lmu.liveryStatus();
-    let backup = false;
-    if (status.exists && !askedThisSession) {
-      const choice = await new Promise<Choice>((resolve) => setDialog({ kind: 'replace', resolve }));
-      setDialog(null);
-      if (choice === 'cancel') return;
-      backup = choice === 'backup';
-    }
-    askedThisSession = true;
     setSending(true);
     setNotice(null);
     try {
+      const status = await window.lmu.liveryStatus();
+      let backup = false;
+      if (status.exists && !askedThisSession) {
+        const choice = await new Promise<Choice>((resolve) => setDialog({ kind: 'replace', resolve }));
+        setDialog(null);
+        if (choice === 'cancel') return;
+        backup = choice === 'backup';
+      }
+      askedThisSession = true;
       const s = useEditor.getState();
       const files = await renderLiveryFiles(
         { width: s.panel!.width, height: s.panel!.height, carColour: s.project.carColour, items: s.project.items, levels: s.panel!.levels },
@@ -95,6 +96,8 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
       const res = await window.lmu.writeLivery(files.paint, files.region, backup);
       if (res.ok) setNotice(SENT, 'success');
       else setDialog({ kind: 'writeError', message: res.message, files });
+    } catch (e) {
+      setNotice(`Couldn't send the livery: ${plainError(e)}.`);
     } finally {
       setSending(false);
     }

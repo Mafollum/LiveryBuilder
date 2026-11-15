@@ -6,6 +6,7 @@ import { Editor } from './screens/Editor';
 import { useEditor } from './state/store';
 import { Dialog } from './components/Dialog';
 import { isTyping } from './canvas/CanvasView';
+import { onMessage, plainError } from './messages';
 import { currentProjectBytes, MissingTemplateError, openProjectBytes, openWithTemplateFile, saveCurrent } from './project/projectActions';
 
 type Screen = { kind: 'start' } | { kind: 'opening'; label: string } | { kind: 'editor' };
@@ -13,7 +14,7 @@ type Modal =
   | { kind: 'restore'; bytes: Uint8Array }
   | { kind: 'missingTemplate'; err: MissingTemplateError }
   | { kind: 'saveChanges'; resolve(proceed: boolean): void }
-  | { kind: 'message'; text: string };
+  | { kind: 'message'; text: string; title?: string };
 
 const APP_TITLE = 'LMU Livery Builder';
 const baseName = (p: string) => p.split(/[\\/]/).pop()!.replace(/\.lmulivery$/i, '');
@@ -27,6 +28,11 @@ export function App(): React.JSX.Element {
   const projectPath = useEditor((s) => s.projectPath);
   const dirty = useEditor((s) => s.dirty);
   const label = useEditor((s) => s.template?.label);
+
+  useEffect(() => {
+    onMessage((title, text) => setModal({ kind: 'message', title, text }));
+    return () => onMessage(null);
+  }, []);
 
   useEffect(() => {
     window.lmu.ready();
@@ -45,8 +51,8 @@ export function App(): React.JSX.Element {
       const panel = await window.lmu.openTemplate(car.fileName);
       useEditor.getState().openCar(car, panel);
       setScreen({ kind: 'editor' });
-    } catch (e) {
-      setError(`Couldn't open ${car.label}: ${e instanceof Error ? e.message : String(e)}`);
+    } catch {
+      setError(`Couldn't open ${car.label}: this template file couldn't be read.`);
       setScreen({ kind: 'start' });
     }
   };
@@ -66,7 +72,7 @@ export function App(): React.JSX.Element {
     } catch (e) {
       setScreen(back.kind === 'opening' ? { kind: 'start' } : back);
       if (e instanceof MissingTemplateError) setModal({ kind: 'missingTemplate', err: e });
-      else setModal({ kind: 'message', text: e instanceof Error ? e.message : String(e) });
+      else setModal({ kind: 'message', title: "Couldn't open the project", text: plainError(e) });
     }
   }, []);
 
@@ -159,7 +165,7 @@ export function App(): React.JSX.Element {
                   setScreen({ kind: 'editor' });
                 } catch (e) {
                   setScreen({ kind: 'start' });
-                  setModal({ kind: 'message', text: `Couldn't open that template: ${e instanceof Error ? e.message : String(e)}` });
+                  setModal({ kind: 'message', text: `Couldn't open that template: ${plainError(e)}.` });
                 }
               },
             },
@@ -188,7 +194,7 @@ export function App(): React.JSX.Element {
           ]}
         />
       )}
-      {modal?.kind === 'message' && <Dialog title="Something's not right" message={<p>{modal.text}</p>} buttons={[{ label: 'OK', primary: true, onClick: () => setModal(null) }]} />}
+      {modal?.kind === 'message' && <Dialog title={modal.title ?? "Something's not right"} message={<p>{modal.text}</p>} buttons={[{ label: 'OK', primary: true, onClick: () => setModal(null) }]} />}
     </div>
   );
 }

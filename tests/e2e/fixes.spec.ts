@@ -133,3 +133,42 @@ test('the window still closes after the editor crashed', async () => {
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
   await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('window did not close')), 8000))]);
 });
+
+test('a failed save says so', async () => {
+  const { sb, app, page } = await start();
+  try {
+    await rect(page);
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(`${sb.root}/not-a-folder`, 'x');
+    await app.evaluate(({ dialog }, p) => {
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath: p })) as typeof dialog.showSaveDialog;
+    }, `${sb.root}/not-a-folder/a.lmulivery`);
+    await page.keyboard.press('Control+s');
+    await expect(page.getByText("Couldn't save the project")).toBeVisible();
+    expect(await page.evaluate(() => window.__livery.getState().dirty)).toBe(true);
+  } finally { await app.close(); }
+});
+
+test('a failed send says so', async () => {
+  const { app, page } = await start();
+  try {
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('livery:status');
+      ipcMain.handle('livery:status', () => { throw new Error('boom'); });
+    });
+    await page.getByRole('button', { name: 'Send to game' }).click();
+    await expect(page.getByText("Couldn't send the livery")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send to game' })).toBeEnabled();
+  } finally { await app.close(); }
+});
+
+test('a broken template file gives a plain message', async () => {
+  const { makeSandbox: mk, standardTemplates } = await import('./helpers');
+  const sb = mk({ ...standardTemplates(), 'Template_GT3_Broken.psd': new Uint8Array([1, 2, 3, 4]) });
+  const { app, page } = await launchApp(sb.env);
+  try {
+    await page.getByRole('button', { name: 'Broken', exact: true }).click();
+    await expect(page.getByText("Couldn't open Broken: this template file couldn't be read.")).toBeVisible();
+    await expect(page.getByText('Error invoking remote method')).toHaveCount(0);
+  } finally { await app.close(); }
+});
