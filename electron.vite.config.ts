@@ -15,7 +15,17 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     resolve: { alias: { '@shared': resolve(__dirname, 'src/shared') } },
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        // the ONNX runtime's .wasm is handed to the renderer by the main process (see src/main/ai.ts),
+        // so the copy Vite finds through the runtime's own URL reference is never used
+        name: 'drop-unused-ort-wasm',
+        generateBundle(_options, bundle) {
+          for (const name of Object.keys(bundle)) if (name.endsWith('.wasm')) delete bundle[name];
+        },
+      },
+    ],
     build: {
       rollupOptions: { input: resolve(__dirname, 'src/renderer/index.html') },
     },

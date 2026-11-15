@@ -11,6 +11,8 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 rmSync(app, { recursive: true, force: true });
 mkdirSync(app, { recursive: true });
 cpSync(join(root, 'out'), join(app, 'out'), { recursive: true });
+// files the build references next to out/ (the background-removal model)
+cpSync(join(root, 'resources'), join(app, 'resources'), { recursive: true });
 writeFileSync(
   join(app, 'package.json'),
   JSON.stringify({ name: pkg.name, productName: pkg.productName, version: pkg.version, private: true, main: 'out/main/index.js' }, null, 2) + '\n',

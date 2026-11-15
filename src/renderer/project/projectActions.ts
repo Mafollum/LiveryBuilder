@@ -14,7 +14,7 @@ export class MissingTemplateError extends Error {
 /** The current project as .lmulivery bytes (with the images it uses). */
 export async function currentProjectBytes(): Promise<Uint8Array> {
   const { project } = useEditor.getState();
-  const ids = new Set(project.items.flatMap((i) => (i.type === 'image' ? [i.assetId] : [])));
+  const ids = new Set(project.items.flatMap((i) => (i.type === 'image' ? [i.assetId, ...(i.originalAssetId ? [i.originalAssetId] : [])] : [])));
   const assets: AssetBytes[] = [];
   for (const id of ids) {
     const a = getAsset(id);

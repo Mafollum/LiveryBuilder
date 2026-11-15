@@ -27,6 +27,7 @@ var api = {
 		});
 	},
 	closeNow: () => electron.ipcRenderer.send("app:close-now"),
-	autosaveMs: Number(process.env.LIVERY_AUTOSAVE_MS) || 6e4
+	autosaveMs: Number(process.env.LIVERY_AUTOSAVE_MS) || 6e4,
+	loadBackgroundModel: () => electron.ipcRenderer.invoke("ai:backgroundModel")
 };
 electron.contextBridge.exposeInMainWorld("lmu", api);

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
 import type { BrushKind, CarTemplate, Item, PanelData, Project } from '../../shared/types';
-import { brushLocalBounds } from '../canvas/brush';
 
 /** Centre of an item's drawn area in its own coordinates (text width is only known on screen: callers pass it). */
 export function localCentre(item: Item): { x: number; y: number } {
@@ -13,8 +12,16 @@ export function localCentre(item: Item): { x: number; y: number } {
     case 'text':
       return { x: (item.fontSize * item.text.length) / 3, y: item.fontSize / 2 };
     case 'brush': {
-      const b = brushLocalBounds(item.strokes);
-      return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: 0, y: 0 };
+      // exact extent of the painted path (the padded drawing bounds are rounded outwards)
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const s of item.strokes) {
+        if (s.mode !== 'paint') continue;
+        for (let i = 0; i < s.points.length; i += 2) {
+          x0 = Math.min(x0, s.points[i]); x1 = Math.max(x1, s.points[i]);
+          y0 = Math.min(y0, s.points[i + 1]); y1 = Math.max(y1, s.points[i + 1]);
+        }
+      }
+      return x1 >= x0 ? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 } : { x: 0, y: 0 };
     }
   }
 }

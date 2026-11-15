@@ -70,3 +70,5 @@ button:disabled { opacity: 0.5; cursor: default; }
 .fixed-panel { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid #eee; }
 .fixed-row { cursor: default; }
 .fixed-row .lock { margin-left: auto; font-size: 11px; opacity: 0.5; }
+.bg-tools { display: flex; flex-direction: column; gap: 6px; }
+.bg-tools .field-title { color: #444; }

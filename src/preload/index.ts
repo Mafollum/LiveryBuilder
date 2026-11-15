@@ -29,6 +29,7 @@ const api: LmuApi = {
   },
   closeNow: () => ipcRenderer.send('app:close-now'),
   autosaveMs: Number(process.env.LIVERY_AUTOSAVE_MS) || 60_000,
+  loadBackgroundModel: () => ipcRenderer.invoke('ai:backgroundModel'),
 };
 
 contextBridge.exposeInMainWorld('lmu', api);

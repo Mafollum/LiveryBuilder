@@ -34,6 +34,13 @@ You can still build a self-contained Windows zip with `npm run dist:win` (see De
    files onto the car), **Rectangle**, **Circle**, **Line**, **Triangle**, **Text**,
    **Brush** and **Eraser**. Move, resize and rotate with **Select**. Anything outside
    the panels is shown faded, because it won't be on the car.
+   **Brush** has eight types (Hard round, Soft round, Airbrush, Pencil, Marker, Calligraphy,
+   Spray, Chalk). For a selected image, **Remove plain background** clears a one-colour
+   background (logos), **Remove background (automatic)** finds the subject of a photo, and
+   **Restore original** undoes either.
+   The car's fixed parts from the template — number plates, class and car stickers, the
+   position display — are shown on top of your design under **On the car**. They're sent to
+   the game with your livery; switch any of them off there.
 3. **Pick a Finish** for each item: Paint, Carbon, Special 1, Special 2 or Sticker.
    **Car colour** (bottom left) colours all the panels.
 4. Click **Send to game** (or press Ctrl+Enter). The program writes
@@ -76,3 +83,10 @@ The LMU templates are game files and are never committed. Some tests use a local
 at `/home/user/lmu-data/tpl/LiveryTemplates` when it exists and are skipped otherwise.
 
 Design and plan: `docs/superpowers/specs/` and `docs/superpowers/plans/`.
+
+## Credits
+
+- Automatic background removal uses **U²-Net (small)** by Xuebin Qin et al., Apache License 2.0
+  (`resources/u2netp.onnx`, the model file distributed by the rembg project), run with
+  **ONNX Runtime Web** (MIT).
+- Template reading uses **ag-psd** (MIT).

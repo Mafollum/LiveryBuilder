@@ -17,6 +17,7 @@ const USES_SOFTNESS: BrushKind[] = ['hard', 'soft', 'airbrush'];
 import { useEditor } from '../state/store';
 import { ColourPicker } from './ColourPicker';
 import { getCurrentView } from '../canvas/viewRegistry';
+import { BackgroundTools } from './BackgroundTools';
 
 const FINISH_HINT = "You choose what each finish looks like in the game's showroom.";
 export const FONTS = ['Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Consolas', 'Impact', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana'];
@@ -140,6 +141,7 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
           <p className="hint small">Double-click the text on the car to change it.</p>
         </>
       )}
+      {item.type === 'image' && <BackgroundTools item={item} />}
       {children}
       <label className="field">
         <span>Opacity</span>

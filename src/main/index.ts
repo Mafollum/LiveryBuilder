@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { registerIpc } from './ipc';
 import { registerProjectIpc } from './project/projectIo';
+import { registerAiIpc } from './ai';
 
 const smokeTest = process.argv.includes('--smoke-test');
 let quitting = false;
@@ -69,6 +70,7 @@ if (smokeTest) setTimeout(() => app.exit(1), 30_000);
 app.whenReady().then(() => {
   registerIpc();
   registerProjectIpc();
+  registerAiIpc();
   createWindow();
 });
 

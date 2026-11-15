@@ -31,6 +31,7 @@ test('the committed Windows app matches the current build', () => {
   for (const f of built) expect(readFileSync(join(APP, 'out', f)).equals(readFileSync(join(ROOT, 'out', f))), f).toBe(true);
   const pkg = JSON.parse(readFileSync(join(APP, 'package.json'), 'utf8'));
   expect(pkg.main).toBe('out/main/index.js');
+  expect(readFileSync(join(APP, 'resources', 'u2netp.onnx')).equals(readFileSync(join(ROOT, 'resources', 'u2netp.onnx')))).toBe(true);
 });
 
 test('the Windows app runs on its own (no node_modules) and reads templates', async () => {
@@ -46,5 +47,11 @@ test('the Windows app runs on its own (no node_modules) and reads templates', as
       try { return (await window.lmu.openTemplate(f)).source; } catch (e) { return `ERR ${(e as Error).message}`; }
     }, ALPHA);
     expect(source).toBe('mask');
+    const sizes = await page.evaluate(async () => {
+      const m = await window.lmu.loadBackgroundModel();
+      return [m.model.length, m.wasm.length];
+    });
+    expect(sizes[0]).toBe(4574861);
+    expect(sizes[1]).toBeGreaterThan(1_000_000);
   } finally { await app.close(); }
 });

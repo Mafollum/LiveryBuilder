@@ -7,6 +7,7 @@ node_fs = require_rolldown_runtime.__toESM(node_fs);
 let node_worker_threads = require("node:worker_threads");
 let node_crypto = require("node:crypto");
 let node_zlib = require("node:zlib");
+let path = require("path");
 // src/main/lmu/findLmu.ts
 var DEFAULT_STEAM = "C:\\Program Files (x86)\\Steam";
 var LMU_SUBPATH = "steamapps\\common\\Le Mans Ultimate";
@@ -475,6 +476,18 @@ function registerProjectIpc() {
 	electron.ipcMain.handle("autosave:read", () => (0, node_fs.existsSync)(autosaveFile()) ? new Uint8Array((0, node_fs.readFileSync)(autosaveFile())) : null);
 	electron.ipcMain.handle("autosave:clear", () => (0, node_fs.rmSync)(autosaveFile(), { force: true }));
 }
+// resources/u2netp.onnx?asset
+var u2netp_default = (0, path.join)(__dirname, "../../resources/u2netp.onnx");
+// node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm?asset
+var ort_wasm_simd_threaded_default = (0, path.join)(__dirname, "./chunks/ort-wasm-simd-threaded-qh98TCA_.wasm");
+// src/main/ai.ts
+/** The background-removal model (U²-Net small, Apache-2.0) and the ONNX runtime's WebAssembly, read from the app files. */
+function registerAiIpc() {
+	electron.ipcMain.handle("ai:backgroundModel", () => ({
+		model: new Uint8Array((0, node_fs.readFileSync)(u2netp_default)),
+		wasm: new Uint8Array((0, node_fs.readFileSync)(ort_wasm_simd_threaded_default))
+	}));
+}
 // src/main/index.ts
 var smokeTest = process.argv.includes("--smoke-test");
 var quitting = false;
@@ -533,6 +546,7 @@ if (smokeTest) setTimeout(() => electron.app.exit(1), 3e4);
 electron.app.whenReady().then(() => {
 	registerIpc();
 	registerProjectIpc();
+	registerAiIpc();
 	createWindow();
 });
 electron.app.on("window-all-closed", () => electron.app.quit());

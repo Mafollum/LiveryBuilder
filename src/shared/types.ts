@@ -71,6 +71,8 @@ interface ItemBase {
 export interface ImageItem extends ItemBase {
   type: 'image';
   assetId: string;
+  /** the imported image before its background was removed */
+  originalAssetId?: string;
   width: number;
   height: number;
 }
@@ -150,4 +152,5 @@ export interface LmuApi {
   onCloseRequested(cb: () => void): void;
   closeNow(): void;
   autosaveMs: number;
+  loadBackgroundModel(): Promise<{ model: Uint8Array; wasm: Uint8Array }>;
 }
