@@ -13,12 +13,20 @@ type Status =
 interface Props {
   onOpenCar(t: CarTemplate): void;
   onOpenProject?(): void;
+  onOpenRecent?(path: string): void;
   children?: React.ReactNode;
 }
 
-export function StartScreen({ onOpenCar, onOpenProject, children }: Props): React.JSX.Element {
+const fileName = (p: string) => p.split(/[\\/]/).pop()!;
+
+export function StartScreen({ onOpenCar, onOpenProject, onOpenRecent, children }: Props): React.JSX.Element {
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const [error, setError] = useState<string | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    void window.lmu.listRecentProjects().then(setRecent);
+  }, []);
 
   const load = useCallback(async () => {
     const folder = await window.lmu.getLmuFolder();
@@ -56,6 +64,18 @@ export function StartScreen({ onOpenCar, onOpenProject, children }: Props): Reac
         )}
       </header>
       {children}
+      {recent.length > 0 && onOpenRecent && (
+        <section className="recent-projects">
+          <h2>Recent projects</h2>
+          <div className="car-buttons">
+            {recent.map((p) => (
+              <button type="button" key={p} title={p} onClick={() => onOpenRecent(p)}>
+                {fileName(p)}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {error && <p className="error">{error}</p>}
       {status.kind === 'loading' && <p>Looking for Le Mans Ultimate…</p>}
       {status.kind === 'noLmu' && (

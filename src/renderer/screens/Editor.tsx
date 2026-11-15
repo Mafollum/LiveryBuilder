@@ -28,7 +28,7 @@ type DialogState =
 import { newTextItem } from '../state/factories';
 import type { TextItem } from '@shared/types';
 
-interface Props { onBack(): void }
+interface Props { onBack(): void; onSave(): void }
 
 const NUDGE = 1;
 const NUDGE_BIG = 10;
@@ -51,7 +51,7 @@ function onShortcut(e: KeyboardEvent): void {
   if (m) { e.preventDefault(); st.updateItem(sel.id, { x: sel.x + m[0], y: sel.y + m[1] }); }
 }
 
-export function Editor({ onBack }: Props): React.JSX.Element {
+export function Editor({ onBack, onSave }: Props): React.JSX.Element {
   const holder = useRef<HTMLDivElement>(null);
   const viewRef = useRef<CanvasView | null>(null);
   const template = useEditor((s) => s.template);
@@ -185,6 +185,7 @@ export function Editor({ onBack }: Props): React.JSX.Element {
   return (
     <div className="editor">
       <TopBar title={template?.label ?? ''} onBack={onBack} onFit={() => viewRef.current?.fit()}>
+        <button type="button" onClick={onSave} title="Save project (Ctrl+S)">Save</button>
         <button type="button" className="primary send" disabled={sending} onClick={() => void send()} title="Send to game (Ctrl+Enter)">
           {sending ? 'Sending…' : 'Send to game'}
         </button>

@@ -66,3 +66,4 @@ button:disabled { opacity: 0.5; cursor: default; }
 .dialog { background: #fff; border-radius: 10px; padding: 20px 24px; max-width: 520px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25); }
 .dialog h2 { margin: 0 0 8px; font-size: 17px; }
 .dialog-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.recent-projects h2 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; color: #444; }

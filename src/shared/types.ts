@@ -110,4 +110,14 @@ export interface LmuApi {
   liveryStatus(): Promise<{ folder: string; exists: boolean }>;
   writeLivery(paint: Uint8Array, region: Uint8Array, backup: boolean): Promise<{ ok: true } | { ok: false; message: string }>;
   saveLiveryElsewhere(paint: Uint8Array, region: Uint8Array): Promise<{ ok: true; folder: string } | { ok: false; message: string } | null>;
+  saveProject(bytes: Uint8Array, path: string | null, suggestedName: string): Promise<string | null>;
+  openProject(): Promise<{ path: string; bytes: Uint8Array } | null>;
+  openRecentProject(path: string): Promise<{ path: string; bytes: Uint8Array } | null>;
+  listRecentProjects(): Promise<string[]>;
+  writeAutosave(bytes: Uint8Array): Promise<void>;
+  readAutosave(): Promise<Uint8Array | null>;
+  clearAutosave(): Promise<void>;
+  onCloseRequested(cb: () => void): void;
+  closeNow(): void;
+  autosaveMs: number;
 }

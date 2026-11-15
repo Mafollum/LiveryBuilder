@@ -34,3 +34,5 @@ export const getAssetImage = (id: string): HTMLImageElement | undefined => asset
 export const getAssetBytes = (id: string): Uint8Array | undefined => assets.get(id)?.bytes;
 export const allAssets = (): Asset[] => [...assets.values()];
 export const clearAssets = (): void => assets.clear();
+
+export const getAsset = (id: string): Asset | undefined => assets.get(id);
