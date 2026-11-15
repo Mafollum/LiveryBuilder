@@ -98,4 +98,25 @@ test.describe('real LMU templates', () => {
       expect(region.length).toBe(ours.length);
     } finally { await app.close(); }
   });
+
+  test('sending a livery with many items stays quick', async () => {
+    const { app, page } = await launchApp(realSandbox());
+    try {
+      await openCar(page, 'Ferrari 296 LMGT3 — 2025');
+      await page.getByRole('button', { name: 'Rectangle' }).click();
+      await dragTexture(page, [500, 500], [700, 700]);
+      await page.evaluate(() => {
+        const s = window.__livery.getState();
+        const base = s.project.items[0];
+        for (let i = 1; i < 25; i++) s.addItem({ ...base, id: `r${i}`, name: `Rectangle ${i + 1}`, x: 200 + (i % 5) * 700, y: 300 + Math.floor(i / 5) * 700 });
+      });
+      expect((await items(page)).length).toBe(25);
+      const t0 = Date.now();
+      await page.getByRole('button', { name: 'Send to game' }).click();
+      await expect(page.getByText('Sent! Press RELOAD in the showroom.')).toBeVisible({ timeout: 60_000 });
+      const ms = Date.now() - t0;
+      console.log(`send with 25 items at 4096: ${ms} ms`);
+      expect(ms).toBeLessThan(5_000);
+    } finally { await app.close(); }
+  });
 });

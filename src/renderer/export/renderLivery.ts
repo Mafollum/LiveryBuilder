@@ -3,7 +3,7 @@ import { applyLevels } from '../../shared/levels';
 import { encodeTga32 } from '../../shared/tga';
 import { finishById } from '../../shared/finish';
 import { createItemNode, type NodeContext } from '../canvas/nodes';
-import { paintRegion } from './regionMap';
+import { paintRegionAt } from './regionMap';
 
 export interface LiveryInput {
   width: number;
@@ -29,10 +29,20 @@ export async function renderLivery(input: LiveryInput, ctx: NodeContext): Promis
   for (const item of input.items) {
     if (!item.visible) continue;
     const node = createItemNode(item, ctx);
-    const layerCanvas = node.toCanvas({ x: 0, y: 0, width, height, pixelRatio: 1 });
-    const lctx = layerCanvas.getContext('2d', { willReadFrequently: true })!;
-    paintRegion(region, lctx.getImageData(0, 0, width, height).data, finishById(item.finish).rgb);
-    pctx.drawImage(layerCanvas, 0, 0);
+    // render only the area the item covers (clipped to the texture), not the whole 4096x4096
+    const box = node.getClientRect();
+    const x0 = Math.max(0, Math.floor(box.x));
+    const y0 = Math.max(0, Math.floor(box.y));
+    const x1 = Math.min(width, Math.ceil(box.x + box.width));
+    const y1 = Math.min(height, Math.ceil(box.y + box.height));
+    if (x1 > x0 && y1 > y0) {
+      const w = x1 - x0;
+      const h = y1 - y0;
+      const itemCanvas = node.toCanvas({ x: x0, y: y0, width: w, height: h, pixelRatio: 1 });
+      const ictx = itemCanvas.getContext('2d', { willReadFrequently: true })!;
+      paintRegionAt(region, width, ictx.getImageData(0, 0, w, h).data, x0, y0, w, h, finishById(item.finish).rgb);
+      pctx.drawImage(itemCanvas, x0, y0);
+    }
     node.destroy();
     // let the UI breathe between items
     await new Promise((r) => setTimeout(r, 0));

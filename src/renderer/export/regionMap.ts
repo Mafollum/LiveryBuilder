@@ -9,3 +9,28 @@ export function paintRegion(region: Uint8ClampedArray, itemRgba: Uint8ClampedArr
     }
   }
 }
+
+/** Like paintRegion, for an item rendered only in its own rectangle (x, y, w, h) of a region that is regionWidth wide. */
+export function paintRegionAt(
+  region: Uint8ClampedArray,
+  regionWidth: number,
+  itemRgba: Uint8ClampedArray,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rgb: [number, number, number],
+): void {
+  const [r, g, b] = rgb;
+  for (let row = 0; row < h; row++) {
+    let s = row * w * 4;
+    let d = ((y + row) * regionWidth + x) * 4;
+    for (let col = 0; col < w; col++, s += 4, d += 4) {
+      if (itemRgba[s + 3] >= 128) {
+        region[d] = r;
+        region[d + 1] = g;
+        region[d + 2] = b;
+      }
+    }
+  }
+}
