@@ -21,8 +21,10 @@ presses **RELOAD** in the showroom. (Decision made by the user, see
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-- Open any official LMU template (`Template_*.psd`) directly from the game's
-  `Support\LiveryTemplates` folder: all 61 templates, every class and season.
+- A small Windows program the user unzips and runs (no installer).
+- Finds the LMU install by itself and opens any official template
+  (`Template_*.psd`) from the game's `Support\LiveryTemplates` folder: all 61
+  templates, every class and season.
 - Edit on the flat 4096×4096 template: own images, brush, adjustable shapes,
   text, layers, with a wireframe/mask overlay as a placement guide.
 - One action writes `customskin.tga` and `customskin_region.tga` into the
@@ -38,13 +40,13 @@ presses **RELOAD** in the showroom. (Decision made by the user, see
   user layers, layer masks, PSD export.
 - Uploading or sharing liveries (Livery Hub, RaceControl).
 - Storing LMU templates in this repository (game files, ~4 GB).
-- Firefox/Safari support (see §3).
+- macOS/Linux builds, an installer, auto-update, code signing.
 
 **Anti-goals** (failure even if it "works")
 - A livery that looks right in the app but wrong in the game: flipped,
   misaligned, black car, wrong brightness, compressed TGA.
 - Silently overwriting a livery the user already has in the game folder.
-- Needing an install, account, server or internet connection to use it.
+- Needing an account, server or internet connection to use it.
 - Feeling laggy at 4096×4096 on a normal gaming PC.
 
 ## 3. Constraints (verified facts)
@@ -94,13 +96,18 @@ presses **RELOAD** in the showroom. (Decision made by the user, see
   RELOAD in the showroom reloads both files.
 
 **Platform**
-- Runs on the user's Windows PC in **Chrome or Edge**. Writing straight into
-  the game folder relies on the File System Access API
-  (`showDirectoryPicker`), which Firefox and Safari lack.
-- The repository is private, so free GitHub Pages hosting is unavailable.
-  Verified in Chromium: a page opened from a local `file://` path is a secure
-  context and has `showDirectoryPicker`. The app is therefore delivered as a
-  **single self-contained HTML file** that the user double-clicks.
+- The user's game is at the Steam default,
+  `C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate`.
+- Chrome and Edge block web pages from reading or writing anything under
+  `Program Files`, `Program Files (x86)` and AppData. The block is in Chromium's
+  File System Access blocklist, and paths are normalised first, so links and
+  junctions don't get around it. A browser-only app therefore can't write the
+  livery into the game, so the user chose a **Windows desktop program**.
+- Steam normally makes its own folder writable for ordinary users. The user
+  already copies livery files there by hand. Whether an ordinary process can
+  write there is still checked at runtime (see 5.8).
+- The repository is private. The build must reach the user without a public
+  host (see 5.1).
 
 ## 4. Approaches considered
 
@@ -109,6 +116,10 @@ presses **RELOAD** in the showroom. (Decision made by the user, see
    and the user presses RELOAD. The 3D view is pixel-exact because it is the
    game itself. The trade-off is that the rotating car is in the game window,
    not inside the app.
+   - Delivery, also the user's choice: a **Windows desktop program**. The
+     alternatives were a single HTML file opened in Chrome/Edge (ruled out
+     because Chromium blocks writing under `Program Files (x86)`) and moving
+     the game to another Steam library (the user preferred not to).
 2. **3D view inside the app using per-car 3D models.** Rejected: no 3D models
    matching LMU's texture layouts exist publicly. Making them would take hours
    of 3D work per car and would likely still be slightly off.
@@ -122,16 +133,35 @@ The user chose to build their own.
 ## 5. Design
 
 ### 5.1 Running the app
-- Built from this repo into one file, `LiveryBuilder.html`, with no network
-  access at runtime. The user downloads it and opens it in Chrome/Edge.
-- Opened in an unsupported browser, it shows a clear message: "Use Chrome
-  or Edge".
+- **Electron** desktop program, Windows x64 (builder's choice of framework,
+  recorded here as a decision). The editor is a web UI in Electron's renderer.
+  All file access goes through the main process with Node `fs`, exposed to the
+  UI by a small preload/IPC API. The browser File System Access API isn't used.
+- Delivered as a **portable zip** (`LiveryBuilder-win-x64.zip`, ~100 MB): the
+  user unzips anywhere and runs `LiveryBuilder.exe`. It's unsigned, so Windows
+  SmartScreen warns on first run ("More info → Run anyway"). The download is
+  documented in the README.
+- No network access at runtime.
+- Getting the zip to the user (repo is private, no public hosting), in order
+  of preference:
+  1. A GitHub Actions workflow on a `windows-latest` runner builds the zip and
+     publishes it as a workflow artifact. The user downloads it from the
+     Actions tab while logged in. Where possible, the same workflow launches
+     the built `.exe` once as a smoke test on real Windows.
+  2. If the session can't push workflow files, build the Windows zip on Linux
+     (no wine needed for a zip target without exe resource editing) and get it
+     to the user another way: for example as a file in the repo if it's under
+     100 MB, or by asking the user.
+- Settings (LMU folder, recent projects) are stored as JSON in the app's user
+  data folder (`%APPDATA%\LiveryBuilder`).
 
 ### 5.2 Choosing a car
-- First run: the user picks their LMU install folder, or the
-  `LiveryTemplates` folder directly. The app remembers the folder (browser
-  storage), and Chrome may ask for permission again with one click in later
-  sessions.
+- First run: the app looks for LMU by itself. It checks the default
+  `C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate`, then every
+  Steam library listed in `…\Steam\steamapps\libraryfolders.vdf`. If it
+  doesn't find LMU, it asks the user to pick the LMU folder (native folder
+  dialog). The folder is remembered. Both `Support\LiveryTemplates` and
+  `UserData\Liveries` are derived from it, and both can be changed in settings.
 - The app lists every `Template_*.psd`, grouped by class, with a readable name
   taken from the file name (for example "Ferrari 296 LMGT3 — 2025 ELMS").
 - Picking a car starts a new project from that template. Loading a large
@@ -147,7 +177,7 @@ match in this list wins.
 | Mask | `disable for export`, `mask`, `maks` | Guide overlay that dims off-car areas. Toggleable, **never exported**. |
 | Wireframe | `wire`, `uvw`, `_uv` | Guide overlay. Toggleable, adjustable opacity, **never exported**. |
 | Region | `region` | Not shown, not exported (swatches only). |
-| Levels | layer kind = Levels | Not a visible layer. Its settings are applied to the export and to the on-screen preview (see 5.6). |
+| Levels | layer kind = Levels | Not a visible layer. In every template it sits above all content layers. Its settings are applied to the **whole** composite (template and user layers, whatever their order) in the export and the on-screen preview (see 5.6). If a template has no Levels layer, nothing is applied. |
 | Template content | anything else | Appears in the layers panel as a locked layer. Visibility as saved in the PSD, can be toggled. Exported. |
 
 - Template content layers keep their PSD order, blend modes, opacity and group
@@ -158,8 +188,11 @@ match in this list wins.
 - Number-plate layers get a "don't move/hide" warning icon. The game puts the
   race number on them.
 - Default finish (region) of template layers: name contains `carbon` → red.
-  Contains `number`, `numplate`, `sticker`, `icon`, `decal`, `sponsor`,
-  `display panel` → white. Everything else → black. The user can change it.
+  Contains `numb`, `nimber`, `numplate`, `sticker`, `icon`, `decal`,
+  `sponsor`, `panel`, `banner` → white. (Not `plate` alone: the Toyota's
+  `Metal Plates` layer is bodywork, not a number plate.) Everything else → black. The user can
+  change it. "Template layer is a sticker/number plate" in 5.4 uses the same
+  white-list.
 
 ### 5.4 User layers
 Every image, shape, text or brush layer is its own layer in one shared layers
@@ -193,8 +226,8 @@ panel with the template layers.
 - **Brush:** colour, size, opacity, hardness. Painting goes onto the selected
   brush layer, or a new brush layer if none is selected. The **eraser** erases
   only within the selected brush layer.
-- **Text:** font (installed system fonts), size, colour, bold/italic, optional
-  outline. Editable after creation. *(Not in the original request; included as
+- **Text:** font (fonts installed on the PC, or at least a fixed list of
+  standard Windows fonts), size, colour, bold/italic, optional outline. Editable after creation. *(Not in the original request; included as
   a proposal.)*
 - **Colour picker:** swatch picker with hex input and recent colours.
 - **Undo/redo:** Ctrl+Z / Ctrl+Y, at least 50 steps, covering every edit
@@ -209,22 +242,29 @@ panel with the template layers.
   colour the user chose.
 
 ### 5.7 Saving and reopening
-- **Autosave** of the current project in browser storage, restored on the next
-  launch.
+- **Autosave** of the current project to the app's user data folder every
+  minute or so and on close, restored on the next launch.
 - **Save project / Open project:** a single project file (`*.lmulivery`; a zip
   of a JSON description plus the imported images and brush layers) saved where
   the user chooses.
+- Default location for project files: `Documents\LMU Livery Builder`.
 - Project files store only the template's file name, not the template itself.
-  Reopening loads the template from the remembered LMU folder.
+  Reopening loads the template from the remembered LMU folder. If the template
+  is missing (for example renamed by a game update), the app says which file
+  it needs and lets the user pick it.
 
 ### 5.8 Send to game
-- **Send to game** button (plus a keyboard shortcut). The first time, the user
-  picks `UserData\Liveries` and the app remembers it.
+- **Send to game** button (plus a keyboard shortcut). It writes to
+  `<LMU folder>\UserData\Liveries`, creating the folder if it's missing.
 - Before the first write in a session, if `customskin.tga` already exists
   there, the app asks first and offers to keep a backup copy
   (`customskin_backup_<date>.tga` and the region equivalent).
-- Writes both files in the exact format from §3, then shows "Sent — press
-  RELOAD in the showroom".
+- Writes both files in the exact format from §3. Each is written to a
+  temporary name and then renamed, so the game never sees a half-written
+  file. Afterwards it shows "Sent — press RELOAD in the showroom".
+- If Windows refuses the write (permissions, or the file locked by the game),
+  the app says so in plain words and offers **Save to a folder…**, so the user
+  can save the two files elsewhere and copy them over by hand.
 - **Paint file:** template content and user layers composited in panel order,
   Levels applied, mask/wireframe/region excluded, alpha forced to 255.
 - **Region file:** starts all black. Going bottom to top through visible
@@ -239,8 +279,9 @@ panel with the template layers.
 - Every template loads, including the 455 MB ones, with progress shown.
 
 ## 6. Left to the builder
-- Framework, PSD library (for example `ag-psd`), canvas/rendering approach,
-  bundling to a single file.
+- UI framework, PSD library (for example `ag-psd`), canvas/rendering
+  approach, Electron packaging tool, where PSD parsing runs (renderer, worker
+  or main process).
 - How brush strokes are stored (raster per brush layer or stroke vectors),
   provided undo and the project file work.
 - How template layers are pre-flattened and cached, and how memory is managed
@@ -252,8 +293,15 @@ panel with the template layers.
 ## 7. Verification
 - **Template parsing:** automated test over the names in Appendix A. Each
   template's layers are sorted into the expected kinds.
-- **All 61 templates load** without error in a scripted browser run against the
-  local copy in the development session (the templates are never committed).
+- **All 61 templates load** without error in a scripted run of the app
+  (Playwright driving Electron) against the local copy in the development
+  session at `/home/user/lmu-data/tpl/LiveryTemplates/`. The templates are
+  never committed. The user's working example livery is at
+  `/home/user/lmu-data/ex/example livery/`.
+- **LMU folder detection:** unit tests with fake folder trees and a sample
+  `libraryfolders.vdf`.
+- **Windows:** the built `.exe` starts on a real Windows machine (CI smoke test
+  if available, otherwise the user's first run).
 - **Composite accuracy:** for a handful of templates (at least one per class,
   including one with fill layers and one 400 MB+), the app's export with no
   user layers matches a reference render made with `psd-tools` (mask and
@@ -263,6 +311,16 @@ panel with the template layers.
   the image).
 - **In the game (user):** a test livery (one shape across a door, one logo, one
   finish change) appears correctly after RELOAD.
+
+## 8. Calls made without the user (for review)
+1. Text tool included, although only images, brush and shapes were asked for.
+2. Default finishes: images/text → white (sticker), shapes/brush → black (base
+   paint). Template carbon → red, stickers/number plates → white.
+3. New layers go under the template's stickers and number plates by default.
+4. "Duplicate & flip" helper for putting a design on the other side of the car.
+5. Electron for the Windows program, delivered as a portable zip.
+6. Manual "Send to game" button rather than writing on every change.
+7. Backup offered before the first overwrite of an existing livery.
 
 ## Appendix A — observed top-level layer names (count across 61 templates)
 
