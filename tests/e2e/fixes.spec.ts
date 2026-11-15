@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { launchApp, makeSandbox, openCar, dragTexture, items } from './helpers';
+import { launchApp, makeSandbox, openCar, dragTexture, items, texturePixel } from './helpers';
 
 async function start() {
   const sb = makeSandbox();
@@ -81,5 +81,46 @@ test('dragging in the colour square is one undo step and one recent colour', asy
     const st2 = await page.evaluate(() => ({ past: window.__livery.getState().past.length, car: window.__livery.getState().project.carColour }));
     expect(st2.car).toBe('#2d2040');
     expect(st2.past).toBe(before2 + 1);
+  } finally { await app.close(); }
+});
+
+async function brushStroke(page: Page, from: [number, number], to: [number, number]) {
+  await page.getByRole('button', { name: 'Brush', exact: true }).click();
+  await page.getByLabel('Brush colour').fill('#0000ff');
+  await page.getByLabel('Brush colour').press('Enter');
+  await dragTexture(page, from, to);
+}
+
+test('flipping a brush item keeps it in place', async () => {
+  const { app, page } = await start();
+  try {
+    await brushStroke(page, [150, 150], [450, 150]);
+    await page.getByRole('button', { name: 'Select' }).click();
+    await page.getByRole('button', { name: 'Flip ⇆' }).click();
+    await expect.poll(() => texturePixel(page, 300, 150)).toEqual([0, 0, 255]);
+  } finally { await app.close(); }
+});
+
+test('painting on a moved brush item is not clipped', async () => {
+  const { app, page } = await start();
+  try {
+    await brushStroke(page, [150, 150], [450, 150]);
+    await page.evaluate(() => {
+      const s = window.__livery.getState();
+      s.updateItem(s.project.items[0].id, { x: 300 });
+    });
+    await dragTexture(page, [150, 250], [450, 250]);
+    expect((await items(page))[0].strokes.length).toBe(2);
+    await expect.poll(() => texturePixel(page, 200, 250)).toEqual([0, 0, 255]);
+  } finally { await app.close(); }
+});
+
+test('a brush item only keeps an image as big as its paint', async () => {
+  const { app, page } = await start();
+  try {
+    await brushStroke(page, [150, 150], [450, 150]);
+    const size = await page.evaluate(() => window.__livery.brushCanvasSize(window.__livery.getState().project.items[0].id));
+    expect(size.width).toBeLessThan(400);
+    expect(size.height).toBeLessThan(100);
   } finally { await app.close(); }
 });

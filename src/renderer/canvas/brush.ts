@@ -18,10 +18,10 @@ export function strokeBounds(s: BrushStroke): Bounds | null {
   return { x: Math.floor(minX - m), y: Math.floor(minY - m), w: Math.ceil(maxX - minX + 2 * m), h: Math.ceil(maxY - minY + 2 * m) };
 }
 
-/** Area covered by the paint strokes of a brush item, clipped to the canvas. */
-export function brushBounds(item: BrushItem, width: number, height: number): Bounds | null {
+/** Area covered by the paint strokes, in the brush item's own coordinates (not clipped). */
+export function brushLocalBounds(strokes: BrushStroke[]): Bounds | null {
   let b: Bounds | null = null;
-  for (const s of item.strokes) {
+  for (const s of strokes) {
     if (s.mode !== 'paint') continue;
     const sb = strokeBounds(s);
     if (!sb) continue;
@@ -31,10 +31,7 @@ export function brushBounds(item: BrushItem, width: number, height: number): Bou
       b = { x, y, w: Math.max(b.x + b.w, sb.x + sb.w) - x, h: Math.max(b.y + b.h, sb.y + sb.h) - y };
     }
   }
-  if (!b) return null;
-  const x = Math.max(0, b.x), y = Math.max(0, b.y);
-  const w = Math.min(width, b.x + b.w) - x, h = Math.min(height, b.y + b.h) - y;
-  return w > 0 && h > 0 ? { x, y, w, h } : null;
+  return b;
 }
 
 /** Draws one stroke: a round polyline (blurred by softness), composited with the stroke's opacity. */
@@ -63,33 +60,51 @@ export function drawStroke(ctx: CanvasRenderingContext2D, s: BrushStroke): void 
   ctx.restore();
 }
 
-interface Entry { canvas: HTMLCanvasElement; strokes: BrushStroke[] }
+const MAX_SIDE = 8192;
 
-/** One full-size canvas per brush item, redrawn incrementally while strokes are only appended. */
+export interface BrushImage { canvas: HTMLCanvasElement; x: number; y: number }
+interface Entry { image: BrushImage; bounds: Bounds; strokes: BrushStroke[] }
+
+const inside = (inner: Bounds, outer: Bounds) =>
+  inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
+
+/**
+ * One canvas per brush item, just big enough for its paint, in the item's own coordinates
+ * (so moved, flipped or rotated brush items keep working). Redrawn incrementally while strokes
+ * are only appended inside the current area; redrawn fully otherwise (e.g. after undo).
+ */
 export class BrushCache {
   private entries = new Map<string, Entry>();
 
-  get(item: BrushItem, width: number, height: number): HTMLCanvasElement {
+  get(item: BrushItem): BrushImage | null {
+    const bounds = brushLocalBounds(item.strokes);
+    if (!bounds) {
+      this.entries.delete(item.id);
+      return null;
+    }
     let e = this.entries.get(item.id);
-    if (!e || e.canvas.width !== width || e.canvas.height !== height) {
+    if (e && e.strokes === item.strokes) return e.image;
+    const prev = e?.strokes ?? [];
+    const appended = !!e && prev.length <= item.strokes.length && prev.every((s, i) => item.strokes[i] === s) && inside(bounds, e.bounds);
+    if (!appended) {
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      e = { canvas, strokes: [] };
+      canvas.width = Math.min(MAX_SIDE, Math.max(1, bounds.w));
+      canvas.height = Math.min(MAX_SIDE, Math.max(1, bounds.h));
+      e = { image: { canvas, x: bounds.x, y: bounds.y }, bounds, strokes: [] };
       this.entries.set(item.id, e);
     }
-    if (e.strokes === item.strokes) return e.canvas;
-    const ctx = e.canvas.getContext('2d')!;
-    const prev = e.strokes;
-    const isPrefix = prev.length <= item.strokes.length && prev.every((s, i) => item.strokes[i] === s);
-    if (!isPrefix) ctx.clearRect(0, 0, width, height);
-    for (let i = isPrefix ? prev.length : 0; i < item.strokes.length; i++) drawStroke(ctx, item.strokes[i]);
-    e.strokes = item.strokes;
-    return e.canvas;
+    const ctx = e!.image.canvas.getContext('2d')!;
+    ctx.save();
+    ctx.translate(-e!.image.x, -e!.image.y);
+    for (let i = appended ? prev.length : 0; i < item.strokes.length; i++) drawStroke(ctx, item.strokes[i]);
+    ctx.restore();
+    e!.strokes = item.strokes;
+    return e!.image;
   }
 
-  drop(id: string): void {
-    this.entries.delete(id);
+  /** Forgets brush images of items that are no longer in the project (they are rebuilt on undo). */
+  prune(liveIds: Set<string>): void {
+    for (const id of this.entries.keys()) if (!liveIds.has(id)) this.entries.delete(id);
   }
 
   clear(): void {

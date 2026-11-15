@@ -65,7 +65,7 @@ export class CanvasView {
   });
   nodeContext: NodeContext = {
     getImage: () => undefined,
-    getBrushCanvas: () => document.createElement('canvas'),
+    getBrush: () => null,
   };
   callbacks: CanvasCallbacks = { select: () => {}, geometry: () => {} };
 
@@ -225,6 +225,15 @@ export class CanvasView {
       if (node) updateItemNode(node, item, this.nodeContext);
     }
     this.stage.batchDraw();
+  }
+
+  /** Centre of an item's drawn area in its own coordinates (the flip pivot). */
+  localCentre(id: string): { x: number; y: number } | null {
+    const node = this.itemNodes.get(id);
+    if (!node) return null;
+    // the node's own rectangle, moved into item coordinates (offset is part of the node transform)
+    const r = node.getClientRect({ skipTransform: true });
+    return { x: r.x + r.width / 2 - node.offsetX(), y: r.y + r.height / 2 - node.offsetY() };
   }
 
   /** Pointer position in texture coordinates. */

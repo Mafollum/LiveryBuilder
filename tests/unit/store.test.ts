@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useEditor } from '../../src/renderer/state/store';
-import { newShapeItem, newTextItem } from '../../src/renderer/state/factories';
+import { newShapeItem, newTextItem, newBrushItem } from '../../src/renderer/state/factories';
 import type { CarTemplate, PanelData, ShapeItem } from '../../src/shared/types';
 
 const T: CarTemplate = { fileName: 'Template_GT3_X.psd', carClass: 'GT3', label: 'X', sizeBytes: 1, mtimeMs: 1 };
@@ -123,5 +123,31 @@ describe('editor store', () => {
     expect(S().project.carColour).toBe('#1e90ff');
     S().undo();
     expect(S().project.carColour).toBe('#ffffff');
+  });
+});
+
+describe('flip in place', () => {
+  it('mirrors a shape around its own centre', () => {
+    const r = newShapeItem('rect', { x: 320, y: 100, w: 100, h: 60 }, '#ff0000');
+    S().addItem(r);
+    S().flipItem(r.id, 'h');
+    expect(S().project.items[0]).toMatchObject({ scaleX: -1, x: 420, y: 100 });
+    S().flipItem(r.id, 'v');
+    expect(S().project.items[0]).toMatchObject({ scaleY: -1, x: 420, y: 160 });
+  });
+  it('respects rotation', () => {
+    const r = { ...newShapeItem('rect', { x: 0, y: 0, w: 100, h: 60 }, '#ff0000'), rotation: 90 };
+    S().addItem(r);
+    S().flipItem(r.id, 'h');
+    const it = S().project.items[0];
+    expect(it.x).toBeCloseTo(0, 6);
+    expect(it.y).toBeCloseTo(100, 6);
+  });
+  it('mirrors a brush item around its painted area', () => {
+    const b = { ...newBrushItem(), strokes: [{ mode: 'paint' as const, colour: '#000', size: 10, opacity: 1, softness: 0, points: [100, 50, 300, 50] }] };
+    S().addItem(b);
+    S().flipItem(b.id, 'h');
+    // painted x-range 100..300 (centre 200) must stay where it is
+    expect(S().project.items[0]).toMatchObject({ scaleX: -1, x: 400 });
   });
 });

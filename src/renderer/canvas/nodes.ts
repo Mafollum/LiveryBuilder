@@ -1,10 +1,10 @@
 import Konva from 'konva';
 import type { BrushItem, Item, ShapeItem } from '../../shared/types';
-import { brushBounds } from './brush';
+import type { BrushImage } from './brush';
 
 export interface NodeContext {
   getImage(assetId: string): CanvasImageSource | undefined;
-  getBrushCanvas(item: BrushItem): HTMLCanvasElement;
+  getBrush(item: BrushItem): BrushImage | null;
 }
 
 /** Konva node type used for each item kind (shapes differ by shape). */
@@ -93,10 +93,10 @@ export function updateItemNode(node: Konva.Node, item: Item, ctx: NodeContext): 
       });
       break;
     case 'brush': {
-      // the node covers only the painted area, so selecting/moving works on what you see
-      const c = ctx.getBrushCanvas(item);
-      const b = brushBounds(item, c.width, c.height) ?? { x: 0, y: 0, w: 0, h: 0 };
-      shape.setAttrs({ image: c, crop: { x: b.x, y: b.y, width: b.w, height: b.h }, width: b.w, height: b.h, offsetX: -b.x, offsetY: -b.y });
+      // the node covers only the painted area, in the item's own coordinates
+      const b = ctx.getBrush(item);
+      if (b) shape.setAttrs({ image: b.canvas, width: b.canvas.width, height: b.canvas.height, offsetX: -b.x, offsetY: -b.y });
+      else shape.setAttrs({ image: undefined, width: 0, height: 0 });
       break;
     }
   }

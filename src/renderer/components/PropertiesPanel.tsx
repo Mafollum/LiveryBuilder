@@ -4,6 +4,7 @@ import { FINISHES } from '@shared/finish';
 import type { FinishId, Item } from '@shared/types';
 import { useEditor } from '../state/store';
 import { ColourPicker } from './ColourPicker';
+import { getCurrentView } from '../canvas/viewRegistry';
 
 const FINISH_HINT = "You choose what each finish looks like in the game's showroom.";
 export const FONTS = ['Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Consolas', 'Impact', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Verdana'];
@@ -146,8 +147,8 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
       </label>
       <p className="hint small">{FINISH_HINT}</p>
       <div className="button-row">
-        <button type="button" title="Flip horizontally" onClick={() => flipItem(item.id, 'h')}>Flip ⇆</button>
-        <button type="button" title="Flip vertically" onClick={() => flipItem(item.id, 'v')}>Flip ⇅</button>
+        <button type="button" title="Flip horizontally" onClick={() => flipItem(item.id, 'h', getCurrentView()?.localCentre(item.id))}>Flip ⇆</button>
+        <button type="button" title="Flip vertically" onClick={() => flipItem(item.id, 'v', getCurrentView()?.localCentre(item.id))}>Flip ⇅</button>
         <button type="button" onClick={() => duplicateItem(item.id)}>Duplicate</button>
         <button type="button" onClick={() => removeItem(item.id)}>Delete</button>
       </div>

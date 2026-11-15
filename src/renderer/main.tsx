@@ -11,6 +11,12 @@ if (window.lmu.isTest) {
     clientToTexture: (x: number, y: number) => getCurrentView()!.clientToTexture(x, y),
     getView: () => getCurrentView()!.getView(),
     isCanvasReady: () => !!getCurrentView()?.isReady(),
+    brushCanvasSize: (id: string) => {
+      const item = useEditor.getState().project.items.find((i) => i.id === id);
+      const cache = (window as unknown as { __liveryBrushes?: { get(i: unknown): { canvas: HTMLCanvasElement } | null } }).__liveryBrushes;
+      const img = item && cache ? cache.get(item) : null;
+      return img ? { width: img.canvas.width, height: img.canvas.height } : null;
+    },
   };
 }
 

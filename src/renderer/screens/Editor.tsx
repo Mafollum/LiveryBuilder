@@ -136,11 +136,9 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
     const brushes = new BrushCache();
     view.nodeContext = {
       getImage: (id) => getAssetImage(id),
-      getBrushCanvas: (item) => {
-        const p = useEditor.getState().panel;
-        return brushes.get(item, p?.width ?? 1, p?.height ?? 1);
-      },
+      getBrush: (item) => brushes.get(item),
     };
+    (window as unknown as { __liveryBrushes?: BrushCache }).__liveryBrushes = brushes;
     const tools = new ToolController(view);
     tools.onNotice = (m) => setNotice(m);
     tools.onTextRequest = (at) => setTextEdit({ mode: 'new', at });
@@ -158,6 +156,7 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
     };
     const sync = () => {
       const s = useEditor.getState();
+      brushes.prune(new Set(s.project.items.map((i) => i.id)));
       view.syncItems(s.project.items, s.selectedId, s.tool === 'select');
       view.stage.container().style.cursor = s.tool === 'select' ? '' : 'crosshair';
     };

@@ -1,6 +1,23 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
 import type { CarTemplate, Item, PanelData, Project } from '../../shared/types';
+import { brushLocalBounds } from '../canvas/brush';
+
+/** Centre of an item's drawn area in its own coordinates (text width is only known on screen: callers pass it). */
+export function localCentre(item: Item): { x: number; y: number } {
+  switch (item.type) {
+    case 'shape':
+      return item.shape === 'line' ? { x: item.width / 2, y: 0 } : { x: item.width / 2, y: item.height / 2 };
+    case 'image':
+      return { x: item.width / 2, y: item.height / 2 };
+    case 'text':
+      return { x: (item.fontSize * item.text.length) / 3, y: item.fontSize / 2 };
+    case 'brush': {
+      const b = brushLocalBounds(item.strokes);
+      return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: 0, y: 0 };
+    }
+  }
+}
 
 export type ToolId = 'select' | 'brush' | 'eraser' | 'rect' | 'ellipse' | 'line' | 'triangle' | 'text' | 'image';
 export interface BrushSettings { colour: string; size: number; opacity: number; softness: number }
@@ -31,7 +48,7 @@ export interface EditorState {
   commitTransient(): void;
   removeItem(id: string): void;
   duplicateItem(id: string): void;
-  flipItem(id: string, axis: 'h' | 'v'): void;
+  flipItem(id: string, axis: 'h' | 'v', pivot?: { x: number; y: number } | null): void;
   moveItem(id: string, toIndex: number): void;
   setCarColour(c: string, opts?: { transient?: boolean }): void;
   select(id: string | null): void;
@@ -112,10 +129,18 @@ export const useEditor = create<EditorState>()((set, get) => {
       change((p) => { p.items.splice(i + 1, 0, copy); }, { selectedId: copy.id });
     },
 
-    flipItem: (id, axis) =>
+    /** Mirrors an item in place: around the centre of what it draws, not its corner. */
+    flipItem: (id, axis, pivot) =>
       change((p) => {
         const it = p.items.find((x) => x.id === id);
         if (!it) return;
+        const c = pivot ?? localCentre(it as Item);
+        const r = (it.rotation * Math.PI) / 180;
+        // keep the pivot's position: shift by R(rotation) * (2*scale*c) along the flipped axis
+        const dx = axis === 'h' ? 2 * it.scaleX * c.x : 0;
+        const dy = axis === 'v' ? 2 * it.scaleY * c.y : 0;
+        it.x += dx * Math.cos(r) - dy * Math.sin(r);
+        it.y += dx * Math.sin(r) + dy * Math.cos(r);
         if (axis === 'h') it.scaleX = -it.scaleX;
         else it.scaleY = -it.scaleY;
       }),
