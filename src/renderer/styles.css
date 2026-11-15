@@ -1,0 +1,4 @@
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; color: #222; background: #f4f4f4; }
+.app { height: 100%; }
