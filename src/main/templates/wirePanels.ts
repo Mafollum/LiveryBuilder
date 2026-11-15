@@ -8,7 +8,7 @@ const SPECK_OPENING = 3;
 /** Rebuilds panel shapes from a wireframe layer: every area enclosed by mesh lines is on the car. */
 export function panelsFromWire(rgba: Uint8Array | Uint8ClampedArray, w: number, h: number): Uint8Array {
   const n = w * h;
-  let line = new Uint8Array(n);
+  let line: Uint8Array = new Uint8Array(n);
   for (let i = 0, p = 0; i < n; i++, p += 4) {
     const luma = Math.floor((3 * rgba[p] + 6 * rgba[p + 1] + rgba[p + 2]) / 10);
     if (rgba[p + 3] > LINE_ALPHA && luma > LINE_LUMA) line[i] = 1;
