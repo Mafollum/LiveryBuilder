@@ -12232,8 +12232,13 @@ function currentImpl(value) {
 globalThis.Iterator?.from;
 var produce = new Immer2().produce;
 // src/renderer/canvas/brush.ts
+/** Softness actually used: "soft" brushes are always at least half soft. */
+var softnessOf = (s) => s.kind === "soft" ? .5 + .5 * s.softness : s.kind === "hard" || !s.kind ? s.softness : 0;
 /** Extra margin around a stroke for its blur. */
-var blurOf = (s) => s.softness > 0 ? s.softness * s.size / 4 : 0;
+var blurOf = (s) => {
+	const soft = softnessOf(s);
+	return soft > 0 ? soft * s.size / 4 : 0;
+};
 function strokeBounds(s) {
 	if (s.points.length < 2) return null;
 	let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -12243,7 +12248,7 @@ function strokeBounds(s) {
 		minY = Math.min(minY, s.points[i + 1]);
 		maxY = Math.max(maxY, s.points[i + 1]);
 	}
-	const m = s.size / 2 + blurOf(s) * 3 + 2;
+	const m = s.size * .75 + blurOf(s) * 3 + 2;
 	return {
 		x: Math.floor(minX - m),
 		y: Math.floor(minY - m),
@@ -12271,25 +12276,156 @@ function brushLocalBounds(strokes) {
 	}
 	return b;
 }
-/** Draws one stroke: a round polyline (blurred by softness), composited with the stroke's opacity. */
+/** Deterministic random numbers, so a stroke always looks the same when it is redrawn. */
+function prng(seed) {
+	let a = seed >>> 0;
+	return () => {
+		a = a + 1831565813 >>> 0;
+		let t = a;
+		t = Math.imul(t ^ t >>> 15, t | 1);
+		t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+		return ((t ^ t >>> 14) >>> 0) / 4294967296;
+	};
+}
+var seedOf = (s) => {
+	let h = 2166136261;
+	for (let i = 0; i < Math.min(s.points.length, 16); i++) h = Math.imul(h ^ Math.round(s.points[i] * 10), 16777619);
+	return (h ^ s.points.length) >>> 0;
+};
+/** Grain value 0..1 for a texture position (chalk). */
+var grain = (x, y) => {
+	let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+	h = Math.imul(h ^ h >>> 13, 1274126177);
+	return ((h ^ h >>> 16) >>> 0) / 4294967296;
+};
+/** Calls f at points every `step` px along the stroke's path. */
+function alongPath(pts, step, f) {
+	f(pts[0], pts[1]);
+	let carry = 0;
+	for (let i = 2; i < pts.length; i += 2) {
+		const x0 = pts[i - 2], y0 = pts[i - 1], x1 = pts[i], y1 = pts[i + 1];
+		const len = Math.hypot(x1 - x0, y1 - y0);
+		let d = step - carry;
+		for (; d <= len; d += step) f(x0 + (x1 - x0) * d / len, y0 + (y1 - y0) * d / len);
+		carry = len - (d - step);
+	}
+}
+function polyline(sc, pts) {
+	sc.beginPath();
+	sc.moveTo(pts[0], pts[1]);
+	if (pts.length === 2) sc.lineTo(pts[0] + .01, pts[1]);
+	for (let i = 2; i < pts.length; i += 2) sc.lineTo(pts[i], pts[i + 1]);
+	sc.stroke();
+}
+/** Draws the stroke's shape (full strength) into the scratch canvas, in the scratch's coordinates. */
+function drawShape(sc, s, pts, ox, oy) {
+	const size = s.size;
+	sc.strokeStyle = s.colour;
+	sc.fillStyle = s.colour;
+	switch (s.kind ?? "hard") {
+		case "hard":
+		case "soft": {
+			const soft = softnessOf(s);
+			const blur = blurOf(s);
+			sc.filter = blur > 0 ? `blur(${blur}px)` : "none";
+			sc.lineCap = "round";
+			sc.lineJoin = "round";
+			sc.lineWidth = size * (1 - .5 * soft);
+			polyline(sc, pts);
+			sc.filter = "none";
+			break;
+		}
+		case "pencil": {
+			sc.lineCap = "round";
+			sc.lineJoin = "round";
+			sc.lineWidth = size;
+			polyline(sc, pts);
+			const img = sc.getImageData(0, 0, sc.canvas.width, sc.canvas.height);
+			const d = img.data;
+			for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 128 ? 255 : 0;
+			sc.putImageData(img, 0, 0);
+			break;
+		}
+		case "marker":
+			sc.lineCap = "square";
+			sc.lineJoin = "miter";
+			sc.lineWidth = size;
+			polyline(sc, pts);
+			break;
+		case "calligraphy":
+			alongPath(pts, .75, (x, y) => {
+				sc.save();
+				sc.translate(x, y);
+				sc.rotate(Math.PI / 4);
+				sc.fillRect(-size / 2, -size * .075, size, size * .15);
+				sc.restore();
+			});
+			break;
+		case "spray": {
+			const rnd = prng(seedOf(s));
+			const dot = Math.max(.7, size / 40);
+			alongPath(pts, Math.max(1, size / 4), (x, y) => {
+				for (let k = 0; k < Math.max(3, Math.round(size / 2)); k++) {
+					const r = size / 2 * Math.sqrt(rnd());
+					const a = rnd() * Math.PI * 2;
+					sc.beginPath();
+					sc.arc(x + r * Math.cos(a), y + r * Math.sin(a), dot, 0, Math.PI * 2);
+					sc.fill();
+				}
+			});
+			break;
+		}
+		case "airbrush": {
+			const r = size / 2;
+			const [cr, cg, cb] = hexRgb(s.colour);
+			alongPath(pts, Math.max(1, size / 10), (x, y) => {
+				const g = sc.createRadialGradient(x, y, 0, x, y, r);
+				g.addColorStop(0, `rgba(${cr},${cg},${cb},0.12)`);
+				g.addColorStop(Math.min(.95, .3 + .6 * (1 - s.softness)), `rgba(${cr},${cg},${cb},0.06)`);
+				g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+				sc.fillStyle = g;
+				sc.fillRect(x - r, y - r, size, size);
+			});
+			break;
+		}
+		case "chalk": {
+			sc.lineCap = "round";
+			sc.lineJoin = "round";
+			sc.lineWidth = size;
+			polyline(sc, pts);
+			const img = sc.getImageData(0, 0, sc.canvas.width, sc.canvas.height);
+			const d = img.data;
+			const w = sc.canvas.width;
+			for (let i = 3, p = 0; i < d.length; i += 4, p++) {
+				if (!d[i]) continue;
+				const g = grain(p % w + ox, Math.floor(p / w) + oy);
+				d[i] = g > .4 ? d[i] : Math.round(d[i] * g * .5);
+			}
+			sc.putImageData(img, 0, 0);
+			break;
+		}
+	}
+}
+function hexRgb(hex) {
+	const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+	return m ? [
+		parseInt(m[1], 16),
+		parseInt(m[2], 16),
+		parseInt(m[3], 16)
+	] : [
+		0,
+		0,
+		0
+	];
+}
+/** Draws one stroke with its brush type, composited with the stroke's opacity (or erasing). */
 function drawStroke(ctx, s) {
 	const b = strokeBounds(s);
 	if (!b) return;
 	const scratch = document.createElement("canvas");
 	scratch.width = Math.max(1, b.w);
 	scratch.height = Math.max(1, b.h);
-	const sc = scratch.getContext("2d");
-	const blur = blurOf(s);
-	sc.filter = blur > 0 ? `blur(${blur}px)` : "none";
-	sc.strokeStyle = s.colour;
-	sc.lineCap = "round";
-	sc.lineJoin = "round";
-	sc.lineWidth = s.size * (1 - .5 * s.softness);
-	sc.beginPath();
-	sc.moveTo(s.points[0] - b.x, s.points[1] - b.y);
-	if (s.points.length === 2) sc.lineTo(s.points[0] - b.x + .01, s.points[1] - b.y);
-	for (let i = 2; i < s.points.length; i += 2) sc.lineTo(s.points[i] - b.x, s.points[i + 1] - b.y);
-	sc.stroke();
+	drawShape(scratch.getContext("2d", { willReadFrequently: s.kind === "pencil" || s.kind === "chalk" }), s, s.points.map((v, i) => v - (i % 2 === 0 ? b.x : b.y)), b.x, b.y);
 	ctx.save();
 	ctx.globalAlpha = s.opacity;
 	ctx.globalCompositeOperation = s.mode === "erase" ? "destination-out" : "source-over";
@@ -12408,6 +12544,7 @@ var useEditor = create()((set, get) => {
 		selectedId: null,
 		tool: "select",
 		brush: {
+			kind: "hard",
 			colour: "#1d6fe0",
 			size: 40,
 			opacity: 1,
@@ -30741,6 +30878,7 @@ var ToolController = class {
 		const b = st.brush;
 		const stroke = {
 			mode: s.mode,
+			kind: b.kind,
 			colour: b.colour,
 			size: b.size,
 			opacity: b.opacity,
@@ -30994,6 +31132,21 @@ function Toolbar({ extra }) {
 	});
 }
 // src/renderer/components/PropertiesPanel.tsx
+var BRUSH_TYPES = [
+	["hard", "Hard round"],
+	["soft", "Soft round"],
+	["airbrush", "Airbrush"],
+	["pencil", "Pencil"],
+	["marker", "Marker"],
+	["calligraphy", "Calligraphy"],
+	["spray", "Spray"],
+	["chalk", "Chalk"]
+];
+var USES_SOFTNESS = [
+	"hard",
+	"soft",
+	"airbrush"
+];
 var FINISH_HINT = "You choose what each finish looks like in the game's showroom.";
 var FONTS = [
 	"Arial",
@@ -31079,6 +31232,18 @@ function PropertiesPanel({ children }) {
 		className: "props",
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: tool === "brush" ? "Brush" : "Eraser" }),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", {
+				className: "field",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Brush type" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", {
+					"aria-label": "Brush type",
+					value: brush.kind,
+					onChange: (e) => setBrush({ kind: e.target.value }),
+					children: BRUSH_TYPES.map(([id, label]) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", {
+						value: id,
+						children: label
+					}, id))
+				})]
+			}),
 			tool === "brush" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ColourPicker, {
 				label: "Brush colour",
 				value: brush.colour,
@@ -31096,7 +31261,7 @@ function PropertiesPanel({ children }) {
 				value: brush.opacity,
 				onChange: (v) => setBrush({ opacity: v })
 			}),
-			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Percent, {
+			USES_SOFTNESS.includes(brush.kind) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Percent, {
 				label: "Softness",
 				value: brush.softness,
 				onChange: (v) => setBrush({ softness: v })

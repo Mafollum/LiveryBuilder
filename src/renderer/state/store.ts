@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
-import type { CarTemplate, Item, PanelData, Project } from '../../shared/types';
+import type { BrushKind, CarTemplate, Item, PanelData, Project } from '../../shared/types';
 import { brushLocalBounds } from '../canvas/brush';
 
 /** Centre of an item's drawn area in its own coordinates (text width is only known on screen: callers pass it). */
@@ -20,7 +20,7 @@ export function localCentre(item: Item): { x: number; y: number } {
 }
 
 export type ToolId = 'select' | 'brush' | 'eraser' | 'rect' | 'ellipse' | 'line' | 'triangle' | 'text' | 'image';
-export interface BrushSettings { colour: string; size: number; opacity: number; softness: number }
+export interface BrushSettings { kind: BrushKind; colour: string; size: number; opacity: number; softness: number }
 
 const HISTORY_LIMIT = 100;
 const RECENT_LIMIT = 8;
@@ -81,7 +81,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     project: emptyProject(),
     selectedId: null,
     tool: 'select',
-    brush: { colour: '#1d6fe0', size: 40, opacity: 1, softness: 0 },
+    brush: { kind: 'hard', colour: '#1d6fe0', size: 40, opacity: 1, softness: 0 },
     recentColours: [],
     dirty: false,
     projectPath: null,

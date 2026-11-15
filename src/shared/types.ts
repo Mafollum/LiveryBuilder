@@ -96,9 +96,13 @@ export interface TextItem extends ItemBase {
   stroke: string;
   strokeWidth: number;
 }
+export type BrushKind = 'hard' | 'soft' | 'airbrush' | 'pencil' | 'marker' | 'calligraphy' | 'spray' | 'chalk';
+
 /** points: x,y pairs in item-local texture px. */
 export interface BrushStroke {
   mode: 'paint' | 'erase';
+  /** brush type (older strokes have none: hard round) */
+  kind?: BrushKind;
   colour: string;
   size: number;
   opacity: number;

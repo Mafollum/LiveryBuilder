@@ -116,7 +116,7 @@ export class ToolController {
     this.view.ui.batchDraw();
     const st = useEditor.getState();
     const b = st.brush;
-    const stroke: BrushStroke = { mode: s.mode, colour: b.colour, size: b.size, opacity: b.opacity, softness: b.softness, points: s.points };
+    const stroke: BrushStroke = { mode: s.mode, kind: b.kind, colour: b.colour, size: b.size, opacity: b.opacity, softness: b.softness, points: s.points };
     if (s.target) {
       const current = st.project.items.find((i) => i.id === s.target!.id);
       if (current?.type === 'brush') st.updateItem(current.id, { strokes: [...current.strokes, stroke] });

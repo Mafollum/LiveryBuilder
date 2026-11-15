@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { FINISHES } from '@shared/finish';
-import type { FinishId, Item } from '@shared/types';
+import type { BrushKind, FinishId, Item } from '@shared/types';
+
+export const BRUSH_TYPES: Array<[BrushKind, string]> = [
+  ['hard', 'Hard round'],
+  ['soft', 'Soft round'],
+  ['airbrush', 'Airbrush'],
+  ['pencil', 'Pencil'],
+  ['marker', 'Marker'],
+  ['calligraphy', 'Calligraphy'],
+  ['spray', 'Spray'],
+  ['chalk', 'Chalk'],
+];
+const USES_SOFTNESS: BrushKind[] = ['hard', 'soft', 'airbrush'];
 import { useEditor } from '../state/store';
 import { ColourPicker } from './ColourPicker';
 import { getCurrentView } from '../canvas/viewRegistry';
@@ -62,10 +74,18 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
     return (
       <div className="props">
         <h3>{tool === 'brush' ? 'Brush' : 'Eraser'}</h3>
+        <label className="field">
+          <span>Brush type</span>
+          <select aria-label="Brush type" value={brush.kind} onChange={(e) => setBrush({ kind: e.target.value as BrushKind })}>
+            {BRUSH_TYPES.map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
+        </label>
         {tool === 'brush' && <ColourPicker label="Brush colour" value={brush.colour} onChange={(c) => setBrush({ colour: c })} />}
         <NumberField label="Brush size" value={brush.size} min={1} max={1000} onChange={(v) => setBrush({ size: v })} />
         <Percent label="Brush opacity" value={brush.opacity} onChange={(v) => setBrush({ opacity: v })} />
-        <Percent label="Softness" value={brush.softness} onChange={(v) => setBrush({ softness: v })} />
+        {USES_SOFTNESS.includes(brush.kind) && <Percent label="Softness" value={brush.softness} onChange={(v) => setBrush({ softness: v })} />}
         <p className="hint small">
           {tool === 'brush'
             ? 'Painting adds to the selected brush item, or starts a new one.'
