@@ -1,7 +1,7 @@
 import Konva from 'konva';
-import type { ShapeItem } from '../../shared/types';
+import type { BrushItem, BrushStroke, ShapeItem } from '../../shared/types';
 import { useEditor } from '../state/store';
-import { newShapeItem } from '../state/factories';
+import { newBrushItem, newShapeItem } from '../state/factories';
 import type { CanvasView } from './CanvasView';
 
 const SHAPE_TOOLS = { rect: 'rect', ellipse: 'ellipse', line: 'line', triangle: 'triangle' } as const;
@@ -12,6 +12,10 @@ const DEFAULT_SIZE = 200;
 export class ToolController {
   private start: { x: number; y: number } | null = null;
   private preview: Konva.Shape | null = null;
+  private stroke: { mode: 'paint' | 'erase'; points: number[]; target: BrushItem | null; inverse: Konva.Transform } | null = null;
+
+  /** Called when the eraser is used without a brush item selected. */
+  onNotice: (message: string) => void = () => {};
 
   /** Called when the text tool is clicked at a texture position. */
   onTextRequest: (at: { x: number; y: number }) => void = () => {};
@@ -35,7 +39,12 @@ export class ToolController {
 
   private down(e: MouseEvent): void {
     if (e.button !== 0 || this.view.isPanning()) return;
-    if (useEditor.getState().tool === 'text') {
+    const tool = useEditor.getState().tool;
+    if (tool === 'brush' || tool === 'eraser') {
+      this.beginStroke(tool === 'brush' ? 'paint' : 'erase');
+      return;
+    }
+    if (tool === 'text') {
       const at = this.view.pointer();
       if (at) this.onTextRequest(at);
       return;
@@ -48,7 +57,48 @@ export class ToolController {
     this.view.ui.add(this.preview);
   }
 
+  private beginStroke(mode: 'paint' | 'erase'): void {
+    const st = useEditor.getState();
+    const sel = st.project.items.find((i) => i.id === st.selectedId);
+    const target = sel?.type === 'brush' ? sel : null;
+    if (mode === 'erase' && !target) {
+      this.onNotice('The eraser only removes brush paint. Select a brush item in the list first.');
+      return;
+    }
+    const p = this.view.pointer();
+    if (!p) return;
+    const inverse = target
+      ? new Konva.Transform().translate(target.x, target.y).rotate((target.rotation * Math.PI) / 180).scale(target.scaleX, target.scaleY).invert()
+      : new Konva.Transform();
+    const local = inverse.point(p);
+    this.stroke = { mode, points: [local.x, local.y], target, inverse };
+    const b = st.brush;
+    this.preview = new Konva.Line({
+      points: [p.x, p.y, p.x + 0.01, p.y],
+      stroke: mode === 'erase' ? '#ffffff' : b.colour,
+      opacity: mode === 'erase' ? 0.7 : b.opacity,
+      strokeWidth: b.size * (target ? Math.abs(target.scaleX) : 1),
+      lineCap: 'round',
+      lineJoin: 'round',
+      listening: false,
+    });
+    this.view.ui.add(this.preview);
+    this.view.ui.batchDraw();
+  }
+
   private move(): void {
+    if (this.stroke && this.preview) {
+      const p = this.view.pointer();
+      if (!p) return;
+      const local = this.stroke.inverse.point(p);
+      const pts = this.stroke.points;
+      if (Math.hypot(local.x - pts[pts.length - 2], local.y - pts[pts.length - 1]) < 1) return;
+      pts.push(local.x, local.y);
+      const line = this.preview as Konva.Line;
+      line.points([...line.points(), p.x, p.y]);
+      this.view.ui.batchDraw();
+      return;
+    }
     if (!this.start || !this.preview) return;
     const p = this.view.pointer();
     if (!p) return;
@@ -58,7 +108,30 @@ export class ToolController {
     this.view.ui.batchDraw();
   }
 
+  private endStroke(): void {
+    const s = this.stroke!;
+    this.stroke = null;
+    this.preview?.destroy();
+    this.preview = null;
+    this.view.ui.batchDraw();
+    const st = useEditor.getState();
+    const b = st.brush;
+    const stroke: BrushStroke = { mode: s.mode, colour: b.colour, size: b.size, opacity: b.opacity, softness: b.softness, points: s.points };
+    if (s.target) {
+      const current = st.project.items.find((i) => i.id === s.target!.id);
+      if (current?.type === 'brush') st.updateItem(current.id, { strokes: [...current.strokes, stroke] });
+    } else {
+      const item = newBrushItem();
+      item.strokes = [stroke];
+      st.addItem(item);
+    }
+  }
+
   private up = (): void => {
+    if (this.stroke) {
+      this.endStroke();
+      return;
+    }
     const shape = this.shapeTool();
     const s = this.start;
     this.start = null;

@@ -12,6 +12,7 @@ import { ItemsList } from '../components/ItemsList';
 import { TextOverlay, type TextEdit } from '../components/TextOverlay';
 import { importImageFile } from '../canvas/importImage';
 import { getAssetImage } from '../state/assets';
+import { BrushCache } from '../canvas/brush';
 import { newTextItem } from '../state/factories';
 import type { TextItem } from '@shared/types';
 
@@ -77,8 +78,16 @@ export function Editor({ onBack }: Props): React.JSX.Element {
     const view = new CanvasView(holder.current!);
     viewRef.current = view;
     setCurrentView(view);
-    view.nodeContext = { ...view.nodeContext, getImage: (id) => getAssetImage(id) };
+    const brushes = new BrushCache();
+    view.nodeContext = {
+      getImage: (id) => getAssetImage(id),
+      getBrushCanvas: (item) => {
+        const p = useEditor.getState().panel;
+        return brushes.get(item, p?.width ?? 1, p?.height ?? 1);
+      },
+    };
     const tools = new ToolController(view);
+    tools.onNotice = (m) => setNotice(m);
     tools.onTextRequest = (at) => setTextEdit({ mode: 'new', at });
     view.callbacks = {
       editText: (id) => {
@@ -95,6 +104,7 @@ export function Editor({ onBack }: Props): React.JSX.Element {
     const sync = () => {
       const s = useEditor.getState();
       view.syncItems(s.project.items, s.selectedId, s.tool === 'select');
+      view.stage.container().style.cursor = s.tool === 'select' ? '' : 'crosshair';
     };
     sync();
     const unsub = useEditor.subscribe(sync);

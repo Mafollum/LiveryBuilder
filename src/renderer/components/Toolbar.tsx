@@ -5,6 +5,8 @@ export interface ToolButton { id: ToolId; label: string; icon: string }
 
 export const TOOLS: ToolButton[] = [
   { id: 'select', label: 'Select', icon: '⬚' },
+  { id: 'brush', label: 'Brush', icon: '🖌' },
+  { id: 'eraser', label: 'Eraser', icon: '⌫' },
   { id: 'rect', label: 'Rectangle', icon: '▭' },
   { id: 'ellipse', label: 'Circle', icon: '◯' },
   { id: 'line', label: 'Line', icon: '╱' },

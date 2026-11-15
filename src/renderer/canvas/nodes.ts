@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import type { BrushItem, Item, ShapeItem } from '../../shared/types';
+import { brushBounds } from './brush';
 
 export interface NodeContext {
   getImage(assetId: string): CanvasImageSource | undefined;
@@ -92,8 +93,10 @@ export function updateItemNode(node: Konva.Node, item: Item, ctx: NodeContext): 
       });
       break;
     case 'brush': {
+      // the node covers only the painted area, so selecting/moving works on what you see
       const c = ctx.getBrushCanvas(item);
-      shape.setAttrs({ image: c, width: c.width, height: c.height });
+      const b = brushBounds(item, c.width, c.height) ?? { x: 0, y: 0, w: 0, h: 0 };
+      shape.setAttrs({ image: c, crop: { x: b.x, y: b.y, width: b.w, height: b.h }, width: b.w, height: b.h, offsetX: -b.x, offsetY: -b.y });
       break;
     }
   }

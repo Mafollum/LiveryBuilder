@@ -41,10 +41,38 @@ function NameField({ item }: { item: Item }) {
   );
 }
 
+function Percent({ label, value, onChange }: { label: string; value: number; onChange(v: number): void }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input type="range" aria-label={label} min={0} max={100} value={Math.round(value * 100)} onChange={(e) => onChange(Number(e.target.value) / 100)} />
+      <span className="value">{Math.round(value * 100)}%</span>
+    </label>
+  );
+}
+
 export function PropertiesPanel({ children }: { children?: React.ReactNode }): React.JSX.Element {
   const item = useEditor((s) => s.project.items.find((i) => i.id === s.selectedId) ?? null);
   const brush = useEditor((s) => s.brush);
+  const tool = useEditor((s) => s.tool);
   const { updateItem, commitTransient, setBrush, flipItem, duplicateItem, removeItem } = useEditor.getState();
+
+  if (tool === 'brush' || tool === 'eraser') {
+    return (
+      <div className="props">
+        <h3>{tool === 'brush' ? 'Brush' : 'Eraser'}</h3>
+        {tool === 'brush' && <ColourPicker label="Brush colour" value={brush.colour} onChange={(c) => setBrush({ colour: c })} />}
+        <NumberField label="Brush size" value={brush.size} min={1} max={1000} onChange={(v) => setBrush({ size: v })} />
+        <Percent label="Brush opacity" value={brush.opacity} onChange={(v) => setBrush({ opacity: v })} />
+        <Percent label="Softness" value={brush.softness} onChange={(v) => setBrush({ softness: v })} />
+        <p className="hint small">
+          {tool === 'brush'
+            ? 'Painting adds to the selected brush item, or starts a new one.'
+            : 'The eraser removes paint from the selected brush item only.'}
+        </p>
+      </div>
+    );
+  }
 
   if (!item) {
     return (
