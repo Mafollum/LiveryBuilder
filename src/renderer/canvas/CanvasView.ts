@@ -1,6 +1,24 @@
 import Konva from 'konva';
-import type { PanelData } from '../../shared/types';
+import type { Item, PanelData } from '../../shared/types';
 import { makePanelCanvas, makePanelMask, makeVeilCanvas, OFF_CAR_GREY } from './panelImages';
+import { createItemNode, nodeMatches, updateItemNode, type NodeContext } from './nodes';
+
+/** Geometry written back after the user moves/resizes/rotates an item on the canvas. */
+export interface ItemGeometry {
+  x: number;
+  y: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  width?: number;
+  height?: number;
+}
+
+export interface CanvasCallbacks {
+  select(id: string | null): void;
+  /** Final geometry at the end of a drag or transform. */
+  geometry(id: string, g: ItemGeometry): void;
+}
 
 const ZOOM_STEP = 1.15;
 const MAX_SCALE = 8;
@@ -32,6 +50,22 @@ export class CanvasView {
   private panning: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver;
   private ready = false;
+  private itemNodes = new Map<string, Konva.Shape>();
+  private lastItems: Item[] = [];
+  private selectMode = true;
+  readonly transformer = new Konva.Transformer({
+    rotateEnabled: true,
+    keepRatio: false,
+    ignoreStroke: true,
+    borderStroke: '#1d6fe0',
+    anchorStroke: '#1d6fe0',
+    anchorSize: 9,
+  });
+  nodeContext: NodeContext = {
+    getImage: () => undefined,
+    getBrushCanvas: () => document.createElement('canvas'),
+  };
+  callbacks: CanvasCallbacks = { select: () => {}, geometry: () => {} };
 
   constructor(private container: HTMLDivElement) {
     this.stage = new Konva.Stage({ container, width: container.clientWidth || 800, height: container.clientHeight || 600 });
@@ -57,6 +91,21 @@ export class CanvasView {
     });
     this.outline.add(this.outlineShape);
     for (const l of [this.background, this.panels, this.items, this.veil, this.outline, this.ui]) this.stage.add(l);
+    this.ui.add(this.transformer);
+    this.transformer.on('transformend', () => {
+      const node = this.transformer.nodes()[0] as Konva.Shape | undefined;
+      if (node) this.callbacks.geometry(node.id(), this.geometryOf(node));
+    });
+    this.items.on('mousedown touchstart', (e) => {
+      if (!this.selectMode || this.isPanning() || e.evt instanceof MouseEvent && e.evt.button !== 0) return;
+      const target = e.target as Konva.Node;
+      if (target.name() === 'item') this.callbacks.select(target.id());
+    });
+    this.stage.on('mousedown', (e) => {
+      if (!this.selectMode || this.isPanning() || e.evt.button !== 0) return;
+      const t = e.target as Konva.Node;
+      if (t === this.stage || t.getLayer() !== this.items && t.getLayer() !== this.ui) this.callbacks.select(null);
+    });
 
     this.stage.on('wheel', (e) => this.onWheel(e.evt));
     container.addEventListener('mousedown', this.onMouseDown, true);
@@ -115,6 +164,68 @@ export class CanvasView {
     const r = this.container.getBoundingClientRect();
     const v = this.getView();
     return { x: (x - r.left - v.x) / v.scale, y: (y - r.top - v.y) / v.scale };
+  }
+
+  /** Mirrors the document's items as Konva nodes and attaches the selection handles. */
+  syncItems(items: Item[], selectedId: string | null, selectMode: boolean): void {
+    this.lastItems = items;
+    this.selectMode = selectMode;
+    const seen = new Set<string>();
+    items.forEach((item, index) => {
+      seen.add(item.id);
+      let node = this.itemNodes.get(item.id);
+      if (node && !nodeMatches(node, item)) {
+        node.destroy();
+        node = undefined;
+      }
+      if (!node) {
+        node = createItemNode(item, this.nodeContext);
+        node.on('dragend', () => this.callbacks.geometry(node!.id(), this.geometryOf(node!)));
+        this.items.add(node);
+        this.itemNodes.set(item.id, node);
+      } else {
+        updateItemNode(node, item, this.nodeContext);
+      }
+      node.draggable(selectMode && item.visible);
+      node.listening(selectMode);
+      node.zIndex(index);
+    });
+    for (const [id, node] of this.itemNodes) {
+      if (!seen.has(id)) {
+        node.destroy();
+        this.itemNodes.delete(id);
+      }
+    }
+    const sel = selectedId ? this.itemNodes.get(selectedId) : undefined;
+    this.transformer.nodes(sel && selectMode && sel.visible() ? [sel] : []);
+    this.stage.batchDraw();
+  }
+
+  /** Re-applies every item (e.g. after an image finished loading). */
+  refreshItems(): void {
+    for (const item of this.lastItems) {
+      const node = this.itemNodes.get(item.id);
+      if (node) updateItemNode(node, item, this.nodeContext);
+    }
+    this.stage.batchDraw();
+  }
+
+  /** Pointer position in texture coordinates. */
+  pointer(): { x: number; y: number } | null {
+    return this.stage.getRelativePointerPosition();
+  }
+
+  private geometryOf(node: Konva.Shape): ItemGeometry {
+    const item = this.lastItems.find((i) => i.id === node.id());
+    const g: ItemGeometry = { x: node.x(), y: node.y(), rotation: node.rotation(), scaleX: node.scaleX(), scaleY: node.scaleY() };
+    if (item?.type === 'shape') {
+      // bake the resize into the shape's size so outlines and corners don't stretch
+      g.width = Math.max(1, item.width * Math.abs(g.scaleX));
+      g.height = Math.max(1, item.height * Math.abs(g.scaleY));
+      g.scaleX = Math.sign(g.scaleX) || 1;
+      g.scaleY = Math.sign(g.scaleY) || 1;
+    }
+    return g;
   }
 
   /** True while Space is held or a pan is in progress: tools should ignore the pointer. */

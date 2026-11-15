@@ -31,3 +31,27 @@ button:disabled { opacity: 0.5; cursor: default; }
 .colour-picker .hex { width: 84px; padding: 4px 6px; border: 1px solid #bbb; border-radius: 4px; font-family: Consolas, monospace; }
 .colour-picker .recent { display: flex; gap: 3px; }
 .colour-picker .swatch { width: 18px; height: 18px; padding: 0; border: 1px solid #999; border-radius: 3px; }
+.toolbar { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #fff; border-right: 1px solid #ddd; width: 118px; }
+.toolbar .tool { display: flex; align-items: center; gap: 8px; text-align: left; border-color: transparent; }
+.toolbar .tool.active { background: #e3edfc; border-color: #1d6fe0; }
+.tool-icon { width: 18px; text-align: center; }
+.side-panel { width: 300px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; min-height: 0; }
+.props { padding: 10px 12px; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 8px; overflow: auto; height: 420px; flex: none; }
+.props h3, .items-panel h3 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #777; }
+.field { display: flex; align-items: center; gap: 8px; }
+.field > span:first-child { width: 96px; color: #444; }
+.field input[type='text'], .field input[type='number'], .field select { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid #bbb; border-radius: 4px; font: inherit; }
+.field input[type='range'] { flex: 1; }
+.field .value { width: 40px; text-align: right; color: #666; }
+.finish-swatch { width: 16px; height: 16px; border: 1px solid #999; border-radius: 3px; }
+.hint.small { font-size: 12px; margin: 0; }
+.button-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.colour-label { width: 96px; color: #444; }
+.canvas-footer .colour-label { width: auto; }
+.items-panel { padding: 10px 12px; flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.items { list-style: none; margin: 0; padding: 0; }
+.items li { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; cursor: pointer; user-select: none; }
+.items li:hover { background: #f3f3f3; }
+.items li.selected { background: #e3edfc; }
+.items .eye { padding: 0 4px; border: none; background: none; }
+.items li input { flex: 1; font: inherit; }

@@ -86,3 +86,15 @@ export async function openCar(page: PwPage, label: string): Promise<void> {
 export function near(actual: [number, number, number], expected: [number, number, number], tol = 1): boolean {
   return actual.every((v, i) => Math.abs(v - expected[i]) <= tol);
 }
+
+/** Drags with the mouse between two texture coordinates. */
+export async function dragTexture(page: PwPage, from: [number, number], to: [number, number]): Promise<void> {
+  const a = await textureToClient(page, from[0], from[1]);
+  const b = await textureToClient(page, to[0], to[1]);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await page.mouse.up();
+}
+
+export const items = (page: PwPage) => page.evaluate(() => window.__livery.getState().project.items);
