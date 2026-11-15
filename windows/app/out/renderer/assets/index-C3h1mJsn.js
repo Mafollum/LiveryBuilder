@@ -12529,6 +12529,12 @@ var useEditor = create()((set, get) => {
 				dirty: true
 			});
 		},
+		setFixedVisible: (label, visible) => change((p) => {
+			p.fixedVisibility = {
+				...p.fixedVisibility ?? {},
+				[label]: visible
+			};
+		}),
 		select: (id) => set({ selectedId: id }),
 		setTool: (t) => set({ tool: t }),
 		setBrush: (patch) => set({ brush: {
@@ -30091,6 +30097,8 @@ var CanvasView = class {
 	background = new lib_default.Layer({ listening: false });
 	panels = new lib_default.Layer({ listening: false });
 	items = new lib_default.Layer();
+	/** The template's fixed elements (number plates, stickers…), above the user's items. */
+	fixed = new lib_default.Layer({ listening: false });
 	veil = new lib_default.Layer({ listening: false });
 	outline = new lib_default.Layer({ listening: false });
 	ui = new lib_default.Layer();
@@ -30166,6 +30174,7 @@ var CanvasView = class {
 			this.background,
 			this.panels,
 			this.items,
+			this.fixed,
 			this.veil,
 			this.outline,
 			this.ui
@@ -30298,6 +30307,17 @@ var CanvasView = class {
 		const sel = selectedId ? this.itemNodes.get(selectedId) : void 0;
 		this.transformer.nodes(sel && selectMode && sel.visible() ? [sel] : []);
 		this.stage.batchDraw();
+	}
+	/** Shows the template's fixed elements that are switched on (in template order). */
+	setFixed(elements) {
+		this.fixed.destroyChildren();
+		for (const e of elements) if (e.shown) this.fixed.add(new lib_default.Image({
+			x: e.x,
+			y: e.y,
+			image: e.image,
+			listening: false
+		}));
+		this.fixed.batchDraw();
 	}
 	/** Re-applies every item (e.g. after an image finished loading). */
 	refreshItems() {
@@ -31282,7 +31302,59 @@ function PropertiesPanel({ children }) {
 		]
 	});
 }
+// src/shared/types.ts
+/** Whether a fixed element is shown and sent: the user's choice for its label, else the template's default. */
+function fixedShown(el, visibility) {
+	return visibility?.[el.label] ?? el.visible;
+}
 // src/renderer/components/ItemsList.tsx
+/** The template's fixed elements (number plates, stickers…), one row per kind, top-most first. */
+function FixedList() {
+	const fixed = useEditor((s) => s.panel?.fixed);
+	const visibility = useEditor((s) => s.project.fixedVisibility);
+	const setFixedVisible = useEditor((s) => s.setFixedVisible);
+	if (!fixed?.length) return null;
+	const labels = [...new Set([...fixed].reverse().map((f) => f.label))];
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "fixed-panel",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: "On the car" }),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "hint small",
+				children: "From the car's template. They sit on top of your design and are sent to the game with it."
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+				className: "items",
+				"aria-label": "On the car",
+				children: labels.map((label) => {
+					const shown = fixed.some((f) => f.label === label && fixedShown(f, visibility));
+					return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", {
+						className: "fixed-row",
+						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: "eye",
+								"aria-label": `${shown ? "Hide" : "Show"} ${label}`,
+								onClick: () => setFixedVisible(label, !shown),
+								children: shown ? "◉" : "○"
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: "item-name",
+								children: label
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: "lock",
+								title: "Part of the template",
+								"aria-hidden": true,
+								children: "🔒"
+							})
+						]
+					}, label);
+				})
+			})
+		]
+	});
+}
 /** All items, newest (top-most) first. Drag rows to reorder, double-click to rename. */
 function ItemsList() {
 	const items = useEditor((s) => s.project.items);
@@ -31299,6 +31371,7 @@ function ItemsList() {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 		className: "items-panel",
 		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FixedList, {}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: "Items" }),
 			rows.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 				className: "hint small",
@@ -31622,6 +31695,20 @@ async function renderLivery(input, ctx) {
 		node.destroy();
 		await new Promise((r) => setTimeout(r, 0));
 	}
+	const sticker = finishById("sticker").rgb;
+	for (const f of input.fixed ?? []) {
+		const w = f.image.width;
+		const h = f.image.height;
+		const c = document.createElement("canvas");
+		c.width = w;
+		c.height = h;
+		const cctx = c.getContext("2d", { willReadFrequently: true });
+		cctx.drawImage(f.image, 0, 0);
+		const x0 = Math.max(0, f.x), y0 = Math.max(0, f.y);
+		const x1 = Math.min(width, f.x + w), y1 = Math.min(height, f.y + h);
+		if (x1 > x0 && y1 > y0) paintRegionAt(region, width, cctx.getImageData(x0 - f.x, y0 - f.y, x1 - x0, y1 - y0).data, x0, y0, x1 - x0, y1 - y0, sticker);
+		pctx.drawImage(c, f.x, f.y);
+	}
 	const paint = pctx.getImageData(0, 0, width, height).data;
 	applyLevels(paint, input.levels);
 	for (let i = 3; i < paint.length; i += 4) paint[i] = 255;
@@ -31748,6 +31835,21 @@ function Editor({ onBack, onSave }) {
 	const carColour = useEditor((s) => s.project.carColour);
 	const setCarColour = useEditor((s) => s.setCarColour);
 	const fileInput = (0, import_react.useRef)(null);
+	const fixedImages = (0, import_react.useRef)(/* @__PURE__ */ new Map());
+	const fixedVisibility = useEditor((s) => s.project.fixedVisibility);
+	/** The template's fixed elements that are switched on, with their decoded images. */
+	const shownFixed = (0, import_react.useCallback)(() => {
+		const st = useEditor.getState();
+		return (st.panel?.fixed ?? []).flatMap((el) => {
+			const image = fixedImages.current.get(el.id);
+			return image ? [{
+				x: el.x,
+				y: el.y,
+				image,
+				shown: fixedShown(el, st.project.fixedVisibility)
+			}] : [];
+		});
+	}, []);
 	const [notice, setNoticeState] = (0, import_react.useState)(null);
 	const setNotice = (0, import_react.useCallback)((text, kind = "info") => setNoticeState(text ? {
 		text,
@@ -31786,7 +31888,8 @@ function Editor({ onBack, onSave }) {
 				height: s.panel.height,
 				carColour: s.project.carColour,
 				items: s.project.items,
-				levels: s.panel.levels
+				levels: s.panel.levels,
+				fixed: shownFixed().filter((f) => f.shown)
 			}, view.nodeContext);
 			const res = await window.lmu.writeLivery(files.paint, files.region, backup);
 			if (res.ok) setNotice(SENT, "success");
@@ -31800,7 +31903,11 @@ function Editor({ onBack, onSave }) {
 		} finally {
 			setSending(false);
 		}
-	}, [sending, setNotice]);
+	}, [
+		sending,
+		setNotice,
+		shownFixed
+	]);
 	(0, import_react.useEffect)(() => {
 		const onKey = (e) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isTyping(e.target)) {
@@ -31884,7 +31991,21 @@ function Editor({ onBack, onSave }) {
 	}, []);
 	(0, import_react.useEffect)(() => {
 		if (panel) viewRef.current?.setPanel(panel, useEditor.getState().project.carColour);
-	}, [panel]);
+		let cancelled = false;
+		fixedImages.current = /* @__PURE__ */ new Map();
+		viewRef.current?.setFixed([]);
+		Promise.all((panel?.fixed ?? []).map(async (el) => [el.id, await loadImage(el.png, "image/png")])).then((pairs) => {
+			if (cancelled) return;
+			fixedImages.current = new Map(pairs);
+			viewRef.current?.setFixed(shownFixed());
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [panel, shownFixed]);
+	(0, import_react.useEffect)(() => {
+		viewRef.current?.setFixed(shownFixed());
+	}, [fixedVisibility, shownFixed]);
 	(0, import_react.useEffect)(() => {
 		viewRef.current?.setCarColour(carColour);
 	}, [carColour]);

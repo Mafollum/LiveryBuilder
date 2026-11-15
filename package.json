@@ -15,7 +15,8 @@
     "pack:windows": "electron-vite build && node tools/pack-windows.mjs"
   },
   "dependencies": {
-    "ag-psd": "^34.2.0"
+    "ag-psd": "^34.2.0",
+    "pngjs": "^7.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
@@ -30,7 +31,6 @@
     "immer": "^11.2.10",
     "jszip": "^3.10.2",
     "konva": "^10.9.1",
-    "pngjs": "^7.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tsx": "^4.23.15",

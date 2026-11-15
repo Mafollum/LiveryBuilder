@@ -5,7 +5,7 @@ import { deflateSync, inflateSync } from 'node:zlib';
 import type { PanelData } from '../../shared/types';
 
 export function cacheKey(t: { fileName: string; sizeBytes: number; mtimeMs: number }): string {
-  return createHash('sha1').update(`v2|${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest('hex');
+  return createHash('sha1').update(`v3|${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest('hex');
 }
 
 const fileFor = (dir: string, key: string) => join(dir, 'panel-cache', `${key}.bin`);
@@ -24,7 +24,8 @@ function unpack(bits: Uint8Array, n: number): Uint8Array {
 
 /** Stores a panel map as one JSON header line followed by the zlib-compressed, bit-packed map. */
 export function writeCachedPanel(dir: string, key: string, data: PanelData): void {
-  const { panel, ...meta } = data;
+  const { panel, fixed, ...rest } = data;
+  const meta = { ...rest, fixed: fixed?.map((f) => ({ ...f, png: Buffer.from(f.png).toString('base64') })) };
   mkdirSync(join(dir, 'panel-cache'), { recursive: true });
   const header = Buffer.from(JSON.stringify(meta) + '\n', 'utf8');
   const body = deflateSync(pack(panel));
@@ -41,10 +42,13 @@ export function readCachedPanel(dir: string, key: string): PanelData | null {
     const buf = readFileSync(file);
     const nl = buf.indexOf(0x0a);
     if (nl < 0) return null;
-    const meta = JSON.parse(buf.subarray(0, nl).toString('utf8')) as Omit<PanelData, 'panel'>;
+    const meta = JSON.parse(buf.subarray(0, nl).toString('utf8')) as Omit<PanelData, 'panel' | 'fixed'> & {
+      fixed?: Array<Omit<NonNullable<PanelData['fixed']>[number], 'png'> & { png: string }>;
+    };
     if (!meta.width || !meta.height) return null;
     const bits = new Uint8Array(inflateSync(buf.subarray(nl + 1)));
-    return { ...meta, panel: unpack(bits, meta.width * meta.height) };
+    const fixed = meta.fixed?.map((f) => ({ ...f, png: new Uint8Array(Buffer.from(f.png, 'base64')) }));
+    return { ...meta, fixed, panel: unpack(bits, meta.width * meta.height) };
   } catch {
     return null;
   }

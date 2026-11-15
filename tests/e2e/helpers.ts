@@ -37,6 +37,10 @@ export function standardTemplates(): Record<string, Uint8Array> {
       size: 1024,
       mask: { rects: [{ x: 100, y: 100, w: 400, h: 200 }, { x: 600, y: 500, w: 300, h: 400 }] },
       levels: LEVELS_10_210,
+      fixed: [
+        { name: "Number Plates (Don't Move)", rect: { x: 420, y: 230, w: 60, h: 60 }, rgba: [0, 160, 0, 255] },
+        { name: 'Class Stickers', rect: { x: 620, y: 520, w: 40, h: 30 }, rgba: [0, 0, 0, 255], overlay: [255, 255, 0] },
+      ],
     }),
     [BETA]: makeTemplate({ size: 1024, wire: { rects: [{ x: 200, y: 200, w: 600, h: 400 }] } }),
   };

@@ -11,6 +11,8 @@ export interface LiveryInput {
   carColour: string;
   items: Item[];
   levels: LevelsSettings | null;
+  /** Fixed template elements that are switched on, drawn above the items with the Sticker finish. */
+  fixed?: Array<{ x: number; y: number; image: CanvasImageSource & { width: number; height: number } }>;
 }
 
 /** Renders the livery at template resolution: the paint (car colour + items, Levels applied) and the finish map. */
@@ -46,6 +48,22 @@ export async function renderLivery(input: LiveryInput, ctx: NodeContext): Promis
     node.destroy();
     // let the UI breathe between items
     await new Promise((r) => setTimeout(r, 0));
+  }
+
+  const sticker = finishById('sticker').rgb;
+  for (const f of input.fixed ?? []) {
+    const w = f.image.width;
+    const h = f.image.height;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const cctx = c.getContext('2d', { willReadFrequently: true })!;
+    cctx.drawImage(f.image, 0, 0);
+    // clip to the texture
+    const x0 = Math.max(0, f.x), y0 = Math.max(0, f.y);
+    const x1 = Math.min(width, f.x + w), y1 = Math.min(height, f.y + h);
+    if (x1 > x0 && y1 > y0) paintRegionAt(region, width, cctx.getImageData(x0 - f.x, y0 - f.y, x1 - x0, y1 - y0).data, x0, y0, x1 - x0, y1 - y0, sticker);
+    pctx.drawImage(c, f.x, f.y);
   }
 
   const paint = pctx.getImageData(0, 0, width, height).data;

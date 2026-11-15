@@ -20,6 +20,8 @@ describe.skipIf(!existsSync(DIR))('real LMU templates', () => {
       expect(share, f).toBeLessThanOrEqual(0.85);
       expect(d.source, f).toBe(WIRE.includes(f) ? 'wire' : 'mask');
       expect(d.levels === null, f).toBe(NO_LEVELS.includes(f));
+      expect(d.fixed!.length, f).toBeGreaterThan(0);
+      for (const el of d.fixed!) expect(el.width * el.height, `${f} ${el.name}`).toBeGreaterThan(0);
     }
   }, 600_000);
 });

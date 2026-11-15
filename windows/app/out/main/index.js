@@ -113,11 +113,11 @@ function listTemplates(lmuFolder) {
 }
 // ./panelWorker?nodeWorker&importer=/home/user/LiveryBuilder/src/main/templates/openTemplate.ts
 function openTemplate_default(options) {
-	return new node_worker_threads.Worker(new URL("./panelWorker-D2Ta5gW3.js", require("url").pathToFileURL(__filename).href), options);
+	return new node_worker_threads.Worker(new URL("./panelWorker-BBrwoyl0.js", require("url").pathToFileURL(__filename).href), options);
 }
 // src/main/templates/panelCache.ts
 function cacheKey(t) {
-	return (0, node_crypto.createHash)("sha1").update(`v2|${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest("hex");
+	return (0, node_crypto.createHash)("sha1").update(`v3|${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest("hex");
 }
 var fileFor = (dir, key) => (0, node_path.join)(dir, "panel-cache", `${key}.bin`);
 function pack(panel) {
@@ -132,7 +132,14 @@ function unpack(bits, n) {
 }
 /** Stores a panel map as one JSON header line followed by the zlib-compressed, bit-packed map. */
 function writeCachedPanel(dir, key, data) {
-	const { panel, ...meta } = data;
+	const { panel, fixed, ...rest } = data;
+	const meta = {
+		...rest,
+		fixed: fixed?.map((f) => ({
+			...f,
+			png: Buffer.from(f.png).toString("base64")
+		}))
+	};
 	(0, node_fs.mkdirSync)((0, node_path.join)(dir, "panel-cache"), { recursive: true });
 	const header = Buffer.from(JSON.stringify(meta) + "\n", "utf8");
 	const body = (0, node_zlib.deflateSync)(pack(panel));
@@ -151,8 +158,13 @@ function readCachedPanel(dir, key) {
 		const meta = JSON.parse(buf.subarray(0, nl).toString("utf8"));
 		if (!meta.width || !meta.height) return null;
 		const bits = new Uint8Array((0, node_zlib.inflateSync)(buf.subarray(nl + 1)));
+		const fixed = meta.fixed?.map((f) => ({
+			...f,
+			png: new Uint8Array(Buffer.from(f.png, "base64"))
+		}));
 		return {
 			...meta,
+			fixed,
 			panel: unpack(bits, meta.width * meta.height)
 		};
 	} catch {

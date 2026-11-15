@@ -36,6 +36,8 @@ export class CanvasView {
   readonly background = new Konva.Layer({ listening: false });
   readonly panels = new Konva.Layer({ listening: false });
   readonly items = new Konva.Layer();
+  /** The template's fixed elements (number plates, stickers…), above the user's items. */
+  readonly fixed = new Konva.Layer({ listening: false });
   readonly veil = new Konva.Layer({ listening: false });
   readonly outline = new Konva.Layer({ listening: false });
   readonly ui = new Konva.Layer();
@@ -92,7 +94,7 @@ export class CanvasView {
       },
     });
     this.outline.add(this.outlineShape);
-    for (const l of [this.background, this.panels, this.items, this.veil, this.outline, this.ui]) this.stage.add(l);
+    for (const l of [this.background, this.panels, this.items, this.fixed, this.veil, this.outline, this.ui]) this.stage.add(l);
     this.ui.add(this.transformer);
     this.transformer.on('transformend', () => {
       const node = this.transformer.nodes()[0] as Konva.Shape | undefined;
@@ -216,6 +218,13 @@ export class CanvasView {
     const sel = selectedId ? this.itemNodes.get(selectedId) : undefined;
     this.transformer.nodes(sel && selectMode && sel.visible() ? [sel] : []);
     this.stage.batchDraw();
+  }
+
+  /** Shows the template's fixed elements that are switched on (in template order). */
+  setFixed(elements: Array<{ x: number; y: number; image: CanvasImageSource; shown: boolean }>): void {
+    this.fixed.destroyChildren();
+    for (const e of elements) if (e.shown) this.fixed.add(new Konva.Image({ x: e.x, y: e.y, image: e.image, listening: false }));
+    this.fixed.batchDraw();
   }
 
   /** Re-applies every item (e.g. after an image finished loading). */

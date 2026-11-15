@@ -1,6 +1,7 @@
 import { readPsd, initializeCanvas, getLayerImageData, getLayerMaskImageData, type Layer } from 'ag-psd';
 import type { LevelsSettings, PanelData } from '../../shared/types';
 import { panelsFromWire } from './wirePanels';
+import { extractFixedElements } from './fixedElements';
 
 let canvasReady = false;
 function ensureImageDataSupport(): void {
@@ -99,9 +100,10 @@ export function extractPanelData(psdBytes: Uint8Array): PanelData {
   const h = psd.height;
   const layers = psd.children ?? [];
   const levels = topLevelLevels(layers);
+  const fixed = extractFixedElements(psd);
   const maskLayer = layers.find((l) => !l.children && isMaskLayerName(l.name ?? ''));
-  if (maskLayer) return { width: w, height: h, panel: maskPanels(maskLayer, w, h), source: 'mask', levels };
+  if (maskLayer) return { width: w, height: h, panel: maskPanels(maskLayer, w, h), source: 'mask', levels, fixed };
   const wireLayer = layers.find((l) => !l.children && isWireLayerName(l.name ?? ''));
-  if (wireLayer) return { width: w, height: h, panel: panelsFromWire(wireRgba(wireLayer, w, h), w, h), source: 'wire', levels };
-  return { width: w, height: h, panel: new Uint8Array(w * h).fill(1), source: 'none', levels };
+  if (wireLayer) return { width: w, height: h, panel: panelsFromWire(wireRgba(wireLayer, w, h), w, h), source: 'wire', levels, fixed };
+  return { width: w, height: h, panel: new Uint8Array(w * h).fill(1), source: 'none', levels, fixed };
 }

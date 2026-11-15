@@ -51,6 +51,7 @@ export interface EditorState {
   flipItem(id: string, axis: 'h' | 'v', pivot?: { x: number; y: number } | null): void;
   moveItem(id: string, toIndex: number): void;
   setCarColour(c: string, opts?: { transient?: boolean }): void;
+  setFixedVisible(label: string, visible: boolean): void;
   select(id: string | null): void;
   setTool(t: ToolId): void;
   setBrush(patch: Partial<BrushSettings>): void;
@@ -159,6 +160,10 @@ export const useEditor = create<EditorState>()((set, get) => {
       const { project, transientBase } = get();
       set({ project: produce(project, (p) => { p.carColour = c; }), transientBase: transientBase ?? project, dirty: true });
     },
+    setFixedVisible: (label, visible) =>
+      change((p) => {
+        p.fixedVisibility = { ...(p.fixedVisibility ?? {}), [label]: visible };
+      }),
     select: (id) => set({ selectedId: id }),
     setTool: (t) => set({ tool: t }),
     setBrush: (patch) => set({ brush: { ...get().brush, ...patch } }),

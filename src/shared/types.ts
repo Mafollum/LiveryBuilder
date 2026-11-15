@@ -21,6 +21,28 @@ export interface CarTemplate {
   mtimeMs: number;
 }
 
+/** A fixed element of the car from the template (number plates, stickers…), drawn above the user's items. */
+export interface FixedElement {
+  /** index of the template's top-level layer */
+  id: string;
+  /** layer name in the template */
+  name: string;
+  /** plain label, shared by elements of the same kind */
+  label: string;
+  /** shown by default (as saved in the template) */
+  visible: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  png: Uint8Array;
+}
+
+/** Whether a fixed element is shown and sent: the user's choice for its label, else the template's default. */
+export function fixedShown(el: FixedElement, visibility: Record<string, boolean> | undefined): boolean {
+  return visibility?.[el.label] ?? el.visible;
+}
+
 /** panel: 1 = on the car, row-major, width*height bytes. */
 export interface PanelData {
   width: number;
@@ -30,6 +52,8 @@ export interface PanelData {
   levels: LevelsSettings | null;
   /** Panel outlines: closed loops, flat [x0, y0, x1, y1, ...] in pixel-corner coordinates. */
   outline?: number[][];
+  /** Fixed elements from the template, bottom to top. */
+  fixed?: FixedElement[];
 }
 
 interface ItemBase {
@@ -93,6 +117,8 @@ export interface Project {
   templateFileName: string;
   carColour: string;
   items: Item[];
+  /** Fixed template elements switched on/off by the user, by label (otherwise as saved in the template). */
+  fixedVisibility?: Record<string, boolean>;
 }
 
 export type ChooseFolderResult = { folder: string } | { error: string } | null;

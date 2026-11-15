@@ -8,6 +8,8 @@ export interface TemplateOptions {
   wire?: { rects: Rect[]; opaqueBlack?: boolean };
   levels?: LevelsChannel;
   nestedLevelsOnly?: boolean;
+  /** Fixed template elements (number plates, stickers): a group per entry with one solid box. */
+  fixed?: Array<{ name: string; rect: Rect; rgba: [number, number, number, number]; hidden?: boolean; overlay?: [number, number, number] }>;
 }
 
 let initialized = false;
@@ -31,6 +33,11 @@ export function makeTemplate(opts: TemplateOptions): Uint8Array {
   init();
   const S = opts.size;
   const children: Layer[] = [{ name: 'Base', left: 0, top: 0, imageData: solid(S, S, [128, 128, 128, 255]) }];
+  for (const f of opts.fixed ?? []) {
+    const box: Layer = { name: `${f.name} box`, left: f.rect.x, top: f.rect.y, imageData: solid(f.rect.w, f.rect.h, f.rgba) };
+    if (f.overlay) box.effects = { solidFill: [{ enabled: true, present: true, showInDialog: true, color: { r: f.overlay[0], g: f.overlay[1], b: f.overlay[2] }, opacity: 1, blendMode: 'normal' }] } as Layer['effects'];
+    children.push({ name: f.name, hidden: !!f.hidden, opened: true, children: [box] });
+  }
   if (opts.levels) {
     const levelsLayer: Layer = { name: 'Levels 1', adjustment: { type: 'levels', channels: [opts.levels] } } as Layer;
     if (opts.nestedLevelsOnly) children.push({ name: 'Group', opened: true, children: [levelsLayer] });

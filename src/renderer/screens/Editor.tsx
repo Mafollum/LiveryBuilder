@@ -11,7 +11,8 @@ import { PropertiesPanel } from '../components/PropertiesPanel';
 import { ItemsList } from '../components/ItemsList';
 import { TextOverlay, type TextEdit } from '../components/TextOverlay';
 import { importImageFile } from '../canvas/importImage';
-import { getAssetImage } from '../state/assets';
+import { getAssetImage, loadImage } from '../state/assets';
+import { fixedShown } from '@shared/types';
 import { BrushCache } from '../canvas/brush';
 import { renderLiveryFiles } from '../export/renderLivery';
 import { Dialog } from '../components/Dialog';
@@ -60,6 +61,17 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
   const carColour = useEditor((s) => s.project.carColour);
   const setCarColour = useEditor((s) => s.setCarColour);
   const fileInput = useRef<HTMLInputElement>(null);
+  const fixedImages = useRef<Map<string, HTMLImageElement>>(new Map());
+  const fixedVisibility = useEditor((s) => s.project.fixedVisibility);
+
+  /** The template's fixed elements that are switched on, with their decoded images. */
+  const shownFixed = useCallback(() => {
+    const st = useEditor.getState();
+    return (st.panel?.fixed ?? []).flatMap((el) => {
+      const image = fixedImages.current.get(el.id);
+      return image ? [{ x: el.x, y: el.y, image, shown: fixedShown(el, st.project.fixedVisibility) }] : [];
+    });
+  }, []);
   const [notice, setNoticeState] = useState<Notice | null>(null);
   const setNotice = useCallback((text: string | null, kind: Notice['kind'] = 'info') => setNoticeState(text ? { text, kind } : null), []);
   const [sending, setSending] = useState(false);
@@ -90,7 +102,14 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
       askedThisSession = true;
       const s = useEditor.getState();
       const files = await renderLiveryFiles(
-        { width: s.panel!.width, height: s.panel!.height, carColour: s.project.carColour, items: s.project.items, levels: s.panel!.levels },
+        {
+          width: s.panel!.width,
+          height: s.panel!.height,
+          carColour: s.project.carColour,
+          items: s.project.items,
+          levels: s.panel!.levels,
+          fixed: shownFixed().filter((f) => f.shown),
+        },
         view.nodeContext,
       );
       const res = await window.lmu.writeLivery(files.paint, files.region, backup);
@@ -101,7 +120,7 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
     } finally {
       setSending(false);
     }
-  }, [sending, setNotice]);
+  }, [sending, setNotice, shownFixed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -178,7 +197,22 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
 
   useEffect(() => {
     if (panel) viewRef.current?.setPanel(panel, useEditor.getState().project.carColour);
-  }, [panel]);
+    let cancelled = false;
+    fixedImages.current = new Map();
+    viewRef.current?.setFixed([]);
+    void Promise.all((panel?.fixed ?? []).map(async (el) => [el.id, await loadImage(el.png, 'image/png')] as const)).then((pairs) => {
+      if (cancelled) return;
+      fixedImages.current = new Map(pairs);
+      viewRef.current?.setFixed(shownFixed());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [panel, shownFixed]);
+
+  useEffect(() => {
+    viewRef.current?.setFixed(shownFixed());
+  }, [fixedVisibility, shownFixed]);
 
   useEffect(() => {
     viewRef.current?.setCarColour(carColour);

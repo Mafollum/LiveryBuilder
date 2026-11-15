@@ -47,3 +47,15 @@ describe('panel cache outline', () => {
     expect(readCachedPanel(dir, 'k')!.outline).toEqual([[0, 0, 4, 0, 4, 4, 0, 4]]);
   });
 });
+
+describe('panel cache fixed elements', () => {
+  it('round-trips fixed element images', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pc-'));
+    const fixed = [{ id: '3', name: 'Class Stickers', label: 'Class stickers', visible: true, x: 1, y: 2, width: 3, height: 4, png: new Uint8Array([137, 80, 78, 71, 1, 2, 3]) }];
+    writeCachedPanel(dir, 'f', { ...randomPanel(), fixed });
+    const back = readCachedPanel(dir, 'f')!;
+    expect(back.fixed!.length).toBe(1);
+    expect(back.fixed![0]).toMatchObject({ id: '3', label: 'Class stickers', visible: true, x: 1, y: 2, width: 3, height: 4 });
+    expect([...back.fixed![0].png]).toEqual([137, 80, 78, 71, 1, 2, 3]);
+  });
+});

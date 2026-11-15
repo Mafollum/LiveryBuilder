@@ -81,7 +81,7 @@ test('items list: order, hide, reorder, rename', async () => {
     await drawRect(page);
     await page.getByRole('button', { name: 'Circle', exact: true }).click();
     await dragTexture(page, [300, 150], [400, 250]);
-    const rows = page.getByRole('listitem');
+    const rows = page.getByRole('list', { name: 'Items', exact: true }).getByRole('listitem');
     await expect(rows).toHaveText(['Circle 1', 'Rectangle 1'].map((n) => new RegExp(n)));
     await page.getByRole('button', { name: 'Hide Rectangle 1' }).click();
     expect((await items(page))[0].visible).toBe(false);
