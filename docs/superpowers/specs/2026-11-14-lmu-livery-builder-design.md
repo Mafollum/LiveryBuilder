@@ -1,7 +1,7 @@
 # LMU Livery Builder — Design
 
 Date: 2026-11-14 (revised 2026-11-15: "panels only" simplification)
-Status: revised, awaiting approval
+Status: approved by the user (2026-11-15)
 
 ## 1. Intent
 
