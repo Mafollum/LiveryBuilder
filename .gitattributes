@@ -1,0 +1,3 @@
+# keep the batch file byte-for-byte (Windows line endings) in every checkout and ZIP download
+*.bat -text
+windows/app/** -diff linguist-generated

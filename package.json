@@ -11,7 +11,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "dist:win": "electron-vite build && electron-builder --win zip --x64"
+    "dist:win": "electron-vite build && electron-builder --win zip --x64",
+    "pack:windows": "electron-vite build && node tools/pack-windows.mjs"
   },
   "dependencies": {
     "ag-psd": "^34.2.0"

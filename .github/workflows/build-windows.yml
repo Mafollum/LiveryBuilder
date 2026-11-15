@@ -1,8 +1,8 @@
 name: Build Windows
 
+# manual only (Actions tab → Build Windows → Run workflow): this account's runs can't start right now,
+# and the program is started with "Start LiveryBuilder.bat" instead
 on:
-  push:
-    branches: ['claude/**', 'main']
   workflow_dispatch:
 
 jobs:

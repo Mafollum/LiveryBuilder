@@ -5,3 +5,5 @@ test-results/
 playwright-report/
 *.lmulivery
 .superpowers/
+windows/runtime-*/
+windows/electron-runtime.zip

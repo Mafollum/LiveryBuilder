@@ -6,17 +6,24 @@ game. You see it on the real car in the game's showroom.
 
 ## Getting the program
 
-1. On GitHub, open this repository's **Actions** tab.
-2. Click the latest **Build Windows** run that has a green tick.
-3. At the bottom, under **Artifacts**, download **LiveryBuilder-win-x64**.
-   GitHub wraps it in a zip; inside is `LiveryBuilder-win-x64.zip` (about 155 MB).
-4. Unzip it anywhere you like, for example `Documents\LiveryBuilder`.
-5. Double-click **LiveryBuilder.exe**.
+1. Download this repository as a ZIP: on GitHub click **Code → Download ZIP**
+   (on the `claude/optimistic-franklin-9lmn7d` branch).
+2. Unzip it somewhere you can write to, for example `Documents\LiveryBuilder`
+   (not inside `Program Files`).
+3. Double-click **`Start LiveryBuilder.bat`**.
+   - The **first time**, it downloads the Electron runtime the program runs on (about
+     160 MB, straight from Electron's official GitHub releases). It checks the download
+     against the official checksum before using it. This takes a minute or two.
+   - **After that**, double-clicking it opens the editor straight away.
 
-The first time, Windows may say **"Windows protected your PC"**. That's because the
-program isn't signed. Click **More info → Run anyway**.
+If Windows shows a warning for the batch file ("Windows protected your PC" or "Open File –
+Security Warning"), choose **More info → Run anyway** or **Run**. It appears because the
+file came from the internet.
 
-There's nothing to install. To update, download the newest build and replace the folder.
+Keep `Start LiveryBuilder.bat` next to the `windows` folder; that's where the program
+lives (`windows\app`) and where the runtime is stored (`windows\runtime-…`).
+
+You can still build a self-contained Windows zip with `npm run dist:win` (see Developing).
 
 ## Making a livery
 
@@ -61,6 +68,7 @@ npm install
 npm run dev          # run the app with hot reload
 npm test             # unit tests (Vitest)
 npm run build && xvfb-run -a npx playwright test   # end-to-end tests (Electron + Playwright)
+npm run pack:windows # rebuild windows/app (what Start LiveryBuilder.bat runs) — commit it after changes
 npm run dist:win     # portable Windows zip in dist/
 ```
 
