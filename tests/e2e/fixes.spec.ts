@@ -124,3 +124,12 @@ test('a brush item only keeps an image as big as its paint', async () => {
     expect(size.height).toBeLessThan(100);
   } finally { await app.close(); }
 });
+
+test('the window still closes after the editor crashed', async () => {
+  const { app } = await start();
+  const closed = new Promise<void>((resolve) => app.once('close', () => resolve()));
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer());
+  await new Promise((r) => setTimeout(r, 500));
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
+  await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('window did not close')), 8000))]);
+});

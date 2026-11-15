@@ -6,6 +6,7 @@ import { registerProjectIpc } from './project/projectIo';
 const smokeTest = process.argv.includes('--smoke-test');
 let quitting = false;
 let allowClose = false;
+const CLOSE_ACK_MS = 2000;
 
 app.setName('LiveryBuilder');
 if (process.env.LIVERY_USER_DATA) app.setPath('userData', process.env.LIVERY_USER_DATA);
@@ -24,10 +25,26 @@ function createWindow(): BrowserWindow {
   });
   win.setMenuBarVisibility(false);
   // closing the window asks the editor first (unsaved changes); quitting the app does not
+  // if the editor crashed or doesn't answer, the window must still close
+  let rendererGone = false;
+  let ackTimer: NodeJS.Timeout | null = null;
+  win.webContents.on('render-process-gone', () => {
+    rendererGone = true;
+  });
   win.on('close', (e) => {
-    if (allowClose || quitting || smokeTest) return;
+    if (allowClose || quitting || smokeTest || rendererGone || win.webContents.isCrashed()) return;
     e.preventDefault();
     win.webContents.send('app:close-requested');
+    if (ackTimer) clearTimeout(ackTimer);
+    ackTimer = setTimeout(() => {
+      allowClose = true;
+      win.close();
+    }, CLOSE_ACK_MS);
+  });
+  ipcMain.removeAllListeners('app:close-ack');
+  ipcMain.on('app:close-ack', () => {
+    if (ackTimer) clearTimeout(ackTimer);
+    ackTimer = null;
   });
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void win.loadFile(join(__dirname, '../renderer/index.html'));

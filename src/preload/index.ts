@@ -22,7 +22,10 @@ const api: LmuApi = {
   clearAutosave: () => ipcRenderer.invoke('autosave:clear'),
   onCloseRequested: (cb) => {
     ipcRenderer.removeAllListeners('app:close-requested');
-    ipcRenderer.on('app:close-requested', () => cb());
+    ipcRenderer.on('app:close-requested', () => {
+      ipcRenderer.send('app:close-ack'); // tells the main process the editor is alive and will answer
+      cb();
+    });
   },
   closeNow: () => ipcRenderer.send('app:close-now'),
   autosaveMs: Number(process.env.LIVERY_AUTOSAVE_MS) || 60_000,
