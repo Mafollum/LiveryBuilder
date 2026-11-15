@@ -78,7 +78,7 @@ export async function texturePixel(page: PwPage, x: number, y: number): Promise<
 
 /** Opens a car from the start screen and waits until its panels are on screen. */
 export async function openCar(page: PwPage, label: string): Promise<void> {
-  await page.getByRole('button', { name: label }).click();
+  await page.getByRole('button', { name: label, exact: true }).click();
   await page.waitForFunction(() => !!window.__livery?.getState().panel && window.__livery.isCanvasReady());
 }
 
