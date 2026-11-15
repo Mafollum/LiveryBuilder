@@ -134,10 +134,21 @@ export class CanvasView {
     this.ready = true;
   }
 
+  private pendingColour: string | null = null;
+
+  /** Recolours the panels at most once per frame (the colour square fires many events while dragging). */
   setCarColour(c: string): void {
     if (!this.panel || !this.mask) return;
-    this.panelImage.image(makePanelCanvas(this.panel, c, this.mask));
-    this.panels.batchDraw();
+    const first = this.pendingColour === null;
+    this.pendingColour = c;
+    if (!first) return;
+    requestAnimationFrame(() => {
+      const colour = this.pendingColour;
+      this.pendingColour = null;
+      if (!colour || !this.panel || !this.mask) return;
+      this.panelImage.image(makePanelCanvas(this.panel, colour, this.mask));
+      this.panels.batchDraw();
+    });
   }
 
   isReady(): boolean {
@@ -290,7 +301,7 @@ export class CanvasView {
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.code !== 'Space' || isTyping(e.target)) return;
+    if (e.code !== 'Space' || isFormControl(e.target)) return;
     e.preventDefault();
     this.spaceDown = true;
     this.container.style.cursor = 'grab';
@@ -309,10 +320,22 @@ export class CanvasView {
   }
 }
 
-/** True when keyboard input is going into a text field. */
+/** True when keyboard input is going into a text field (so editing keys belong to the field). */
 export function isTyping(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el || !el.tagName) return false;
+  if (el.isContentEditable) return true;
   const tag = el.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+  if (tag === 'textarea') return true;
+  if (tag !== 'input') return false;
+  const type = ((el as HTMLInputElement).type || 'text').toLowerCase();
+  return ['text', 'number', 'search', 'email', 'url', 'tel', 'password'].includes(type);
+}
+
+/** True for any form control (sliders and dropdowns keep their arrow keys and Space). */
+export function isFormControl(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  const tag = el.tagName.toLowerCase();
+  return isTyping(target) || tag === 'input' || tag === 'select';
 }

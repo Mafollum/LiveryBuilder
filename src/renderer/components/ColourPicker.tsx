@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { useEditor } from '../state/store';
 
@@ -7,27 +7,52 @@ const HEX = /^#[0-9a-f]{6}$/i;
 interface Props {
   label: string;
   value: string;
-  onChange(colour: string): void;
+  /** transient = live preview while dragging in the colour square; a commit follows. */
+  onChange(colour: string, transient: boolean): void;
+  /** Called once a transient sequence ends (the colour square closed). */
+  onCommit?(): void;
 }
 
 /** Colour square, hex field and the last 8 colours used. */
-export function ColourPicker({ label, value, onChange }: Props): React.JSX.Element {
+export function ColourPicker({ label, value, onChange, onCommit }: Props): React.JSX.Element {
   const recent = useEditor((s) => s.recentColours);
   const useColour = useEditor((s) => s.useColour);
   const [text, setText] = useState(value);
+  const square = useRef<HTMLInputElement>(null);
+  const latest = useRef({ onChange, onCommit, value });
+  latest.current = { onChange, onCommit, value };
   useEffect(() => setText(value), [value]);
+
+  // the native "change" event fires once when the colour square is closed: commit there
+  useEffect(() => {
+    const el = square.current!;
+    const done = () => {
+      const v = el.value.toLowerCase();
+      useColour(v);
+      latest.current.onCommit?.();
+    };
+    el.addEventListener('change', done);
+    return () => el.removeEventListener('change', done);
+  }, [useColour]);
 
   const apply = (c: string) => {
     const v = c.toLowerCase();
     if (!HEX.test(v)) return setText(value);
     useColour(v);
-    if (v !== value.toLowerCase()) onChange(v);
+    if (v !== value.toLowerCase()) onChange(v, false);
   };
 
   return (
     <div className="colour-picker">
       <span className="colour-label">{label}</span>
-      <input type="color" title="Choose colour" aria-label="Choose colour" value={HEX.test(value) ? value : '#000000'} onChange={(e) => apply(e.target.value)} />
+      <input
+        ref={square}
+        type="color"
+        title="Choose colour"
+        aria-label="Choose colour"
+        value={HEX.test(value) ? value : '#000000'}
+        onChange={(e) => onChange(e.target.value.toLowerCase(), true)}
+      />
       <input
         type="text"
         className="hex"

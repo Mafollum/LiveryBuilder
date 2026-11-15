@@ -91,8 +91,8 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
       <NameField item={item} />
       {item.type === 'shape' && (
         <>
-          <ColourPicker label="Fill" value={item.fill} onChange={(c) => { set({ fill: c }); setBrush({ colour: c }); }} />
-          <ColourPicker label="Outline colour" value={item.stroke} onChange={(c) => set({ stroke: c })} />
+          <ColourPicker label="Fill" value={item.fill} onChange={(c, t) => { updateItem(item.id, { fill: c }, { transient: t }); setBrush({ colour: c }); }} onCommit={commitTransient} />
+          <ColourPicker label="Outline colour" value={item.stroke} onChange={(c, t) => updateItem(item.id, { stroke: c }, { transient: t })} onCommit={commitTransient} />
           <NumberField label="Outline width" value={item.strokeWidth} min={0} max={200} onChange={(v) => set({ strokeWidth: v })} />
           {item.shape === 'rect' && <NumberField label="Corner radius" value={item.cornerRadius} min={0} max={2000} onChange={(v) => set({ cornerRadius: v })} />}
           {item.shape === 'line' && <NumberField label="Thickness" value={item.height} min={1} max={2000} onChange={(v) => set({ height: v })} />}
@@ -109,12 +109,12 @@ export function PropertiesPanel({ children }: { children?: React.ReactNode }): R
             </select>
           </label>
           <NumberField label="Size" value={item.fontSize} min={8} max={2000} onChange={(v) => set({ fontSize: v })} />
-          <ColourPicker label="Fill" value={item.fill} onChange={(c) => { set({ fill: c }); setBrush({ colour: c }); }} />
+          <ColourPicker label="Fill" value={item.fill} onChange={(c, t) => { updateItem(item.id, { fill: c }, { transient: t }); setBrush({ colour: c }); }} onCommit={commitTransient} />
           <div className="button-row">
             <button type="button" aria-pressed={item.bold} className={item.bold ? 'active' : ''} onClick={() => set({ bold: !item.bold })}>Bold</button>
             <button type="button" aria-pressed={item.italic} className={item.italic ? 'active' : ''} onClick={() => set({ italic: !item.italic })}>Italic</button>
           </div>
-          <ColourPicker label="Outline colour" value={item.stroke} onChange={(c) => set({ stroke: c })} />
+          <ColourPicker label="Outline colour" value={item.stroke} onChange={(c, t) => updateItem(item.id, { stroke: c }, { transient: t })} onCommit={commitTransient} />
           <NumberField label="Outline width" value={item.strokeWidth} min={0} max={200} onChange={(v) => set({ strokeWidth: v })} />
           <p className="hint small">Double-click the text on the car to change it.</p>
         </>

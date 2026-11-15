@@ -12,7 +12,7 @@ type Screen = { kind: 'start' } | { kind: 'opening'; label: string } | { kind: '
 type Modal =
   | { kind: 'restore'; bytes: Uint8Array }
   | { kind: 'missingTemplate'; err: MissingTemplateError }
-  | { kind: 'saveChanges' }
+  | { kind: 'saveChanges'; resolve(proceed: boolean): void }
   | { kind: 'message'; text: string };
 
 const APP_TITLE = 'LMU Livery Builder';
@@ -51,6 +51,12 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /** Resolves true when it's fine to leave the current livery (saved, or the user chose not to save). */
+  const confirmDiscard = useCallback(async (): Promise<boolean> => {
+    if (screenRef.current.kind !== 'editor' || !useEditor.getState().dirty) return true;
+    return new Promise<boolean>((resolve) => setModal({ kind: 'saveChanges', resolve }));
+  }, []);
+
   const openBytes = useCallback(async (bytes: Uint8Array, path: string | null, restored = false) => {
     const back = screenRef.current;
     setScreen({ kind: 'opening', label: path ? baseName(path) : 'your livery' });
@@ -65,9 +71,10 @@ export function App(): React.JSX.Element {
   }, []);
 
   const openProject = useCallback(async () => {
+    if (!(await confirmDiscard())) return;
     const res = await window.lmu.openProject();
     if (res) await openBytes(res.bytes, res.path);
-  }, [openBytes]);
+  }, [openBytes, confirmDiscard]);
 
   const openRecent = async (path: string) => {
     const res = await window.lmu.openRecentProject(path);
@@ -103,17 +110,14 @@ export function App(): React.JSX.Element {
   // closing the window
   useEffect(() => {
     window.lmu.onCloseRequested(async () => {
-      if (screenRef.current.kind === 'editor' && useEditor.getState().dirty) setModal({ kind: 'saveChanges' });
-      else {
-        await window.lmu.clearAutosave();
-        window.lmu.closeNow();
-      }
+      if (!(await confirmDiscard())) return;
+      await window.lmu.clearAutosave();
+      window.lmu.closeNow();
     });
-  }, []);
+  }, [confirmDiscard]);
 
-  const goBack = () => {
-    if (useEditor.getState().dirty) void currentProjectBytes().then((b) => window.lmu.writeAutosave(b));
-    setScreen({ kind: 'start' });
+  const goBack = async () => {
+    if (await confirmDiscard()) setScreen({ kind: 'start' });
   };
 
   return (
@@ -124,7 +128,7 @@ export function App(): React.JSX.Element {
         </StartScreen>
       )}
       {screen.kind === 'opening' && <div className="opening">Opening {screen.label}…</div>}
-      {screen.kind === 'editor' && <Editor onBack={goBack} onSave={() => void saveCurrent(false)} />}
+      {screen.kind === 'editor' && <Editor onBack={() => void goBack()} onSave={() => void saveCurrent(false)} />}
 
       {modal?.kind === 'restore' && (
         <Dialog
@@ -172,14 +176,15 @@ export function App(): React.JSX.Element {
               label: 'Save',
               primary: true,
               onClick: async () => {
+                const { resolve } = modal;
                 if (await saveCurrent(false)) {
                   setModal(null);
-                  window.lmu.closeNow();
+                  resolve(true);
                 }
               },
             },
-            { label: "Don't save", onClick: async () => { setModal(null); await window.lmu.clearAutosave(); window.lmu.closeNow(); } },
-            { label: 'Cancel', onClick: () => setModal(null) },
+            { label: "Don't save", onClick: async () => { const { resolve } = modal; setModal(null); await window.lmu.clearAutosave(); resolve(true); } },
+            { label: 'Cancel', onClick: () => { const { resolve } = modal; setModal(null); resolve(false); } },
           ]}
         />
       )}

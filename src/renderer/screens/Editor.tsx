@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { useEditor } from '../state/store';
-import { CanvasView, isTyping } from '../canvas/CanvasView';
+import { CanvasView, isFormControl, isTyping } from '../canvas/CanvasView';
 import { ToolController } from '../canvas/tools';
 import { setCurrentView } from '../canvas/viewRegistry';
 import { TopBar } from '../components/TopBar';
@@ -48,7 +48,7 @@ function onShortcut(e: KeyboardEvent): void {
   const step = e.shiftKey ? NUDGE_BIG : NUDGE;
   const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
   const m = moves[e.key];
-  if (m) { e.preventDefault(); st.updateItem(sel.id, { x: sel.x + m[0], y: sel.y + m[1] }); }
+  if (m && !isFormControl(e.target)) { e.preventDefault(); st.updateItem(sel.id, { x: sel.x + m[0], y: sel.y + m[1] }); }
 }
 
 export function Editor({ onBack, onSave }: Props): React.JSX.Element {
@@ -283,7 +283,7 @@ export function Editor({ onBack, onSave }: Props): React.JSX.Element {
             )}
           </div>
           <div className="canvas-footer">
-            <ColourPicker label="Car colour" value={carColour} onChange={setCarColour} />
+            <ColourPicker label="Car colour" value={carColour} onChange={(c, t) => setCarColour(c, { transient: t })} onCommit={() => useEditor.getState().commitTransient()} />
             {panel?.source === 'none' && <span className="note">This car's template has no panel outlines</span>}
           </div>
         </div>

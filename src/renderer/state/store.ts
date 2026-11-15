@@ -33,7 +33,7 @@ export interface EditorState {
   duplicateItem(id: string): void;
   flipItem(id: string, axis: 'h' | 'v'): void;
   moveItem(id: string, toIndex: number): void;
-  setCarColour(c: string): void;
+  setCarColour(c: string, opts?: { transient?: boolean }): void;
   select(id: string | null): void;
   setTool(t: ToolId): void;
   setBrush(patch: Partial<BrushSettings>): void;
@@ -129,7 +129,11 @@ export const useEditor = create<EditorState>()((set, get) => {
       });
     },
 
-    setCarColour: (c) => change((p) => { p.carColour = c; }),
+    setCarColour: (c, opts) => {
+      if (!opts?.transient) return change((p) => { p.carColour = c; });
+      const { project, transientBase } = get();
+      set({ project: produce(project, (p) => { p.carColour = c; }), transientBase: transientBase ?? project, dirty: true });
+    },
     select: (id) => set({ selectedId: id }),
     setTool: (t) => set({ tool: t }),
     setBrush: (patch) => set({ brush: { ...get().brush, ...patch } }),

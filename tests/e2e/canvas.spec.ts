@@ -38,6 +38,7 @@ test('shows white panels with an outline on grey, car colour, zoom, pan, back', 
     expect(Math.abs(after.y - before.y - 50)).toBeLessThanOrEqual(2);
 
     await page.getByRole('button', { name: '← Cars' }).click();
+    await page.getByRole('button', { name: "Don't save" }).click(); // the car colour change is unsaved
     await openCar(page, 'Test Car Beta');
     expect(await texturePixel(page, 500, 400)).toEqual([255, 255, 255]);
     expect(near(await texturePixel(page, 100, 100), [205, 205, 205])).toBe(true);
