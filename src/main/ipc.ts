@@ -56,11 +56,11 @@ export function registerIpc(): void {
     return liveryStatus(lmu);
   });
 
-  ipcMain.handle('livery:write', (_e, paint: Uint8Array, region: Uint8Array, backup: boolean) => {
+  ipcMain.handle('livery:write', async (_e, paint: Uint8Array, region: Uint8Array, backup: boolean) => {
     const lmu = currentLmuFolder();
     if (!lmu) return { ok: false, message: "Couldn't find the Le Mans Ultimate folder." };
     try {
-      writeLiveryFiles(liveryStatus(lmu).folder, paint, region, { backup });
+      await writeLiveryFiles(liveryStatus(lmu).folder, paint, region, { backup });
       return { ok: true };
     } catch (err) {
       return { ok: false, message: describeWriteError(err as NodeJS.ErrnoException) };
@@ -72,7 +72,7 @@ export function registerIpc(): void {
     const res = await dialog.showOpenDialog(win!, { title: 'Choose a folder for the two livery files', properties: ['openDirectory', 'createDirectory'] });
     if (res.canceled || !res.filePaths[0]) return null;
     try {
-      writeLiveryFiles(res.filePaths[0], paint, region, { backup: false });
+      await writeLiveryFiles(res.filePaths[0], paint, region, { backup: false });
       return { ok: true, folder: res.filePaths[0] };
     } catch (err) {
       return { ok: false, message: describeWriteError(err as NodeJS.ErrnoException) };
