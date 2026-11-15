@@ -1,0 +1,16 @@
+appId: com.liverybuilder.app
+productName: LMU Livery Builder
+executableName: LiveryBuilder
+artifactName: LiveryBuilder-win-x64.${ext}
+directories:
+  output: dist
+files:
+  - out/**
+  - package.json
+  - '!**/node_modules/**/.v8-cache/**'
+npmRebuild: false
+win:
+  target:
+    - target: zip
+      arch: [x64]
+  signAndEditExecutable: false

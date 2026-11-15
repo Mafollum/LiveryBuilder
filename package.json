@@ -14,13 +14,7 @@
     "dist:win": "electron-vite build && electron-builder --win zip --x64"
   },
   "dependencies": {
-    "ag-psd": "^34.2.0",
-    "immer": "^11.2.10",
-    "jszip": "^3.10.2",
-    "konva": "^10.9.1",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "zustand": "^5.1.0"
+    "ag-psd": "^34.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
@@ -32,10 +26,16 @@
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
+    "immer": "^11.2.10",
+    "jszip": "^3.10.2",
+    "konva": "^10.9.1",
     "pngjs": "^7.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tsx": "^4.23.15",
     "typescript": "~5.9",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "zustand": "^5.1.0"
   }
 }
