@@ -38,3 +38,12 @@ describe('panel cache', () => {
     expect(readCachedPanel(dir, 'bad')).toBeNull();
   });
 });
+
+describe('panel cache outline', () => {
+  it('round-trips the outline loops', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pc-'));
+    const data = { ...randomPanel(), outline: [[0, 0, 4, 0, 4, 4, 0, 4]] };
+    writeCachedPanel(dir, 'k', data);
+    expect(readCachedPanel(dir, 'k')!.outline).toEqual([[0, 0, 4, 0, 4, 4, 0, 4]]);
+  });
+});

@@ -38,9 +38,9 @@ test('opens a template through the app and caches the result', async () => {
       const d = await window.lmu.openTemplate('Template_GT3_TestCarAlpha_2025.psd');
       let on = 0;
       for (const v of d.panel) on += v;
-      return { w: d.width, source: d.source, on, hi: d.levels?.channels[0].highlightOutput };
+      return { w: d.width, source: d.source, on, hi: d.levels?.channels[0].highlightOutput, loops: d.outline?.length };
     });
-    expect(first).toEqual({ w: 1024, source: 'mask', on: 400 * 200 + 300 * 400, hi: 210 });
+    expect(first).toEqual({ w: 1024, source: 'mask', on: 400 * 200 + 300 * 400, hi: 210, loops: 2 });
     const beta = await page.evaluate(async () => (await window.lmu.openTemplate('Template_HYPER_TestCarBeta.psd')).source);
     expect(beta).toBe('wire');
     const { readdirSync } = await import('node:fs');

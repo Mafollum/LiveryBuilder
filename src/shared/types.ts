@@ -28,6 +28,8 @@ export interface PanelData {
   panel: Uint8Array;
   source: 'mask' | 'wire' | 'none';
   levels: LevelsSettings | null;
+  /** Panel outlines: closed loops, flat [x0, y0, x1, y1, ...] in pixel-corner coordinates. */
+  outline?: number[][];
 }
 
 interface ItemBase {

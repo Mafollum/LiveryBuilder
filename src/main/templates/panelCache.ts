@@ -5,7 +5,7 @@ import { deflateSync, inflateSync } from 'node:zlib';
 import type { PanelData } from '../../shared/types';
 
 export function cacheKey(t: { fileName: string; sizeBytes: number; mtimeMs: number }): string {
-  return createHash('sha1').update(`${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest('hex');
+  return createHash('sha1').update(`v2|${t.fileName}|${t.sizeBytes}|${t.mtimeMs}`).digest('hex');
 }
 
 const fileFor = (dir: string, key: string) => join(dir, 'panel-cache', `${key}.bin`);
