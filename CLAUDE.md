@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > env vars, tests or project structure must update the matching section here in the same commit.
 > When expanding it, keep the seven-section layout below, use short scannable bullets, list names only
 > (never secret values), and don't repeat what is easy to discover by reading one file.
+>
+> **Always commit to the main branch.** This repo has no `main`; its default branch
+> `claude/optimistic-franklin-9lmn7d` *is* the main branch (README downloads point to it). Every change
+> must end up committed and pushed there — if a session works on another branch, also push the
+> commits to `claude/optimistic-franklin-9lmn7d` (fast-forward; merge, don't force-push, if it has moved).
 
 ## 1. Project overview & tech stack
 
